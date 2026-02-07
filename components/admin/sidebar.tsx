@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -38,7 +39,7 @@ export function AdminSidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center px-6">
         <Link href="/dashboard" className="flex items-center">
-          <span className="text-xl font-bold text-sidebar-foreground">Tesserix</span>
+          <Image src="/logo.png" alt="Tesserix" width={94} height={28} />
           <span className="ml-2 rounded bg-sidebar-accent px-2 py-0.5 text-xs font-medium text-sidebar-accent-foreground">
             Admin
           </span>

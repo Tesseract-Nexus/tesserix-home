@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X, ChevronDown, ShoppingBag, ChefHat, Hospital, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -92,7 +93,7 @@ export function Navbar() {
         {/* Logo */}
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5">
-            <span className="text-xl font-semibold text-foreground">Tesserix</span>
+            <Image src="/logo.png" alt="Tesserix" width={108} height={32} priority />
           </Link>
         </div>
 
@@ -219,7 +220,7 @@ export function Navbar() {
         aria-label="Mobile navigation"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <span className="text-xl font-semibold text-foreground">Tesserix</span>
+          <Image src="/logo.png" alt="Tesserix" width={108} height={32} />
           <button
             type="button"
             className="-m-2.5 rounded-md p-2.5 text-foreground"

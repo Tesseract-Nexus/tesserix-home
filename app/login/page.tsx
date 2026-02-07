@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,7 +51,7 @@ export default function LoginPage() {
         <Card className="w-full max-w-md shadow-sm">
           <CardHeader className="text-center">
             <Link href="/" className="inline-block mb-4">
-              <span className="text-2xl font-semibold text-foreground">Tesserix</span>
+              <Image src="/logo.png" alt="Tesserix" width={121} height={36} />
             </Link>
             <CardTitle className="text-2xl">Admin Portal Login</CardTitle>
             <CardDescription>

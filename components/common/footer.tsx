@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const footerNavigation = {
   products: [
@@ -55,7 +56,7 @@ export function Footer() {
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           {/* Brand */}
           <div className="space-y-4">
-            <span className="text-xl font-semibold text-foreground">Tesserix</span>
+            <Image src="/logo.png" alt="Tesserix" width={94} height={28} />
             <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
               Commerce infrastructure for growing businesses. Build, launch, and scale your online marketplace.
             </p>
