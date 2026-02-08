@@ -63,6 +63,13 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
   verification: {
     google: "google-site-verification-code",
   },
