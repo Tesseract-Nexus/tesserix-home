@@ -19,17 +19,17 @@ export const metadata: Metadata = {
     "online marketplace",
     "commerce infrastructure",
   ],
-  authors: [{ name: "Tesserix", url: "https://tesserix.com" }],
+  authors: [{ name: "Tesserix", url: "https://tesserix.app" }],
   creator: "Tesserix",
   publisher: "Tesserix",
-  metadataBase: new URL("https://tesserix.com"),
+  metadataBase: new URL("https://tesserix.app"),
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://tesserix.com",
+    url: "https://tesserix.app",
     siteName: "Tesserix",
     title: "Tesserix - Commerce Infrastructure for Growing Businesses",
     description:
@@ -80,8 +80,8 @@ const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "Tesserix",
-  url: "https://tesserix.com",
-  logo: "https://tesserix.com/logo.png",
+  url: "https://tesserix.app",
+  logo: "https://tesserix.app/logo.png",
   description:
     "Tesserix creates innovative SaaS solutions that empower businesses to thrive in the digital economy.",
   sameAs: [
@@ -93,7 +93,7 @@ const organizationSchema = {
     "@type": "ContactPoint",
     telephone: "+1-555-123-4567",
     contactType: "sales",
-    email: "sales@tesserix.com",
+    email: "sales@tesserix.app",
   },
 };
 

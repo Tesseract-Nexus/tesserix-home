@@ -55,7 +55,7 @@ const ticketData: Record<string, {
       },
       {
         id: "2",
-        author: { name: "Support Team", email: "support@tesserix.com", role: "admin" },
+        author: { name: "Support Team", email: "support@tesserix.app", role: "admin" },
         content:
           "Thank you for reporting this issue. We're investigating the logs you provided. Could you confirm which Stripe API version you're using?",
         createdAt: "2024-01-15 14:22",

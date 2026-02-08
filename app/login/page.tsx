@@ -75,7 +75,7 @@ export default function LoginPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@tesserix.com"
+                  placeholder="admin@tesserix.app"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

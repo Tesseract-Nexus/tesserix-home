@@ -19,8 +19,8 @@ const contactInfo = [
   {
     icon: Mail,
     title: "Email",
-    description: "sales@tesserix.com",
-    href: "mailto:sales@tesserix.com",
+    description: "sales@tesserix.app",
+    href: "mailto:sales@tesserix.app",
   },
   {
     icon: Phone,
