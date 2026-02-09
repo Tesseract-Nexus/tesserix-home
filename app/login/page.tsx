@@ -1,59 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo") || "/admin/dashboard";
+  const error = searchParams.get("error");
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/auth/direct/platform/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        credentials: "same-origin",
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.authenticated) {
-        // Session cookie was set by auth-bff — redirect to dashboard
-        window.location.href = returnTo;
-        return;
-      }
-
-      // Handle specific errors
-      if (data.error === "RATE_LIMITED") {
-        setError("Too many login attempts. Please try again later.");
-      } else if (data.error === "ACCOUNT_LOCKED") {
-        setError("Your account has been temporarily locked due to multiple failed attempts.");
-      } else {
-        setError(data.message || "Invalid email or password.");
-      }
-    } catch {
-      setError("Unable to connect to the authentication service. Please try again.");
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    // Auto-redirect to auth-bff OIDC login unless there's an error to display
+    if (!error) {
+      setIsRedirecting(true);
+      const loginUrl = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+      window.location.href = loginUrl;
     }
+  }, [error, returnTo]);
+
+  function handleLogin() {
+    setIsRedirecting(true);
+    const loginUrl = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+    window.location.href = loginUrl;
   }
 
   return (
@@ -83,68 +56,29 @@ export default function LoginPage() {
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@tesserix.app"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                  aria-required="true"
-                />
+            {error && (
+              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive mb-4" role="alert">
+                {error === "session_expired"
+                  ? "Your session has expired. Please sign in again."
+                  : error === "auth_failed"
+                    ? "Authentication failed. Please try again."
+                    : "An error occurred. Please try again."}
               </div>
+            )}
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                    aria-required="true"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <Eye className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </button>
-                </div>
+            {isRedirecting ? (
+              <div className="flex flex-col items-center justify-center py-8 space-y-3">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Redirecting to sign in...</p>
               </div>
-
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? "Signing in..." : "Sign in"}
-              </Button>
-            </form>
+            ) : (
+              <button
+                onClick={handleLogin}
+                className="w-full inline-flex items-center justify-center rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+              >
+                Sign in
+              </button>
+            )}
 
             <div className="mt-6 text-center text-sm text-muted-foreground">
               <p>

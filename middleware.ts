@@ -62,8 +62,8 @@ export async function middleware(request: NextRequest) {
 
   // Admin paths require authentication
   if (isAdminPath(pathname)) {
-    // Check for session cookie (auth-bff sets 'bff_session')
-    const sessionCookie = request.cookies.get('bff_session');
+    // Check for session cookie (auth-bff sets 'bff_home_session' for tesserix-home)
+    const sessionCookie = request.cookies.get('bff_home_session');
 
     if (!sessionCookie) {
       // Redirect to login with return URL

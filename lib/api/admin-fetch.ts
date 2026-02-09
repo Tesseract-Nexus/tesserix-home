@@ -46,7 +46,7 @@ interface TokenResponse {
 }
 
 /**
- * Exchange bff_session cookie for a JWT access token via auth-bff internal endpoint.
+ * Exchange bff_home_session cookie for a JWT access token via auth-bff internal endpoint.
  * This is the proper auth chain: session cookie → auth-bff → JWT → backend services.
  *
  * The Go backend services expect JWT tokens (validated by Istio which injects
@@ -56,7 +56,7 @@ async function getAccessToken(sessionCookieValue: string): Promise<TokenResponse
   try {
     const response = await fetch(`${AUTH_BFF_URL}/internal/get-token`, {
       headers: {
-        'Cookie': `bff_session=${sessionCookieValue}`,
+        'Cookie': `bff_home_session=${sessionCookieValue}`,
         ...(INTERNAL_SERVICE_KEY ? { 'X-Internal-Service-Key': INTERNAL_SERVICE_KEY } : {}),
       },
     });
@@ -81,7 +81,7 @@ interface AdminFetchOptions extends Omit<RequestInit, 'headers'> {
  * Server-side fetch helper for authenticated requests to backend services.
  *
  * Auth flow:
- * 1. Read bff_session cookie from browser request
+ * 1. Read bff_home_session cookie from browser request
  * 2. Exchange session for JWT via auth-bff /internal/get-token
  * 3. Forward JWT as Authorization: Bearer header to backend services
  * 4. Istio validates JWT and injects x-jwt-claim-* headers for the Go service
@@ -96,7 +96,7 @@ export async function adminFetch(
   options: AdminFetchOptions = {}
 ): Promise<Response> {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('bff_session');
+  const sessionCookie = cookieStore.get('bff_home_session');
 
   if (!sessionCookie) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -155,7 +155,7 @@ export async function getSessionContext(): Promise<{
   accessToken: string;
 } | null> {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('bff_session');
+  const sessionCookie = cookieStore.get('bff_home_session');
 
   if (!sessionCookie) {
     return null;
@@ -170,7 +170,7 @@ export async function getSessionContext(): Promise<{
   try {
     const sessionResponse = await fetch(`${AUTH_BFF_URL}/auth/session`, {
       headers: {
-        'Cookie': `bff_session=${sessionCookie.value}`,
+        'Cookie': `bff_home_session=${sessionCookie.value}`,
       },
     });
 
