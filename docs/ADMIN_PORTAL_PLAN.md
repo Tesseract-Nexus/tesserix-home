@@ -1,0 +1,257 @@
+# Admin Portal Implementation Plan
+
+## Overview
+
+Tesserix Home (`tesserix.app`) serves dual purposes: the public marketing site and the internal admin portal for managing Mark8ly tenants, support tickets, and platform operations. The admin portal lives under the `(admin)` route group at `/dashboard`, `/tenants`, and `/tickets`.
+
+## Current State
+
+### What Already Exists
+
+**UI Pages (all using mock/hardcoded data):**
+- `app/(admin)/dashboard/page.tsx` — Stats grid + recent tenants/tickets
+- `app/(admin)/tenants/page.tsx` — Tenant list with search/filter
+- `app/(admin)/tenants/[id]/page.tsx` — Tenant detail with tabs (Overview, Settings, Billing, Activity)
+- `app/(admin)/tickets/page.tsx` — Ticket list with search/filter/priority
+- `app/(admin)/tickets/[id]/page.tsx` — Ticket detail with comments + status management
+- `app/(admin)/layout.tsx` — AuthProvider + AdminSidebar wrapper
+- `components/admin/sidebar.tsx` — Navigation sidebar with user info
+- `components/admin/header.tsx` — Sticky admin header
+- `components/admin/stats-card.tsx` — Reusable stats card
+
+**Auth Infrastructure:**
+- `middleware.ts` — Session cookie check, redirects unauthenticated users to `/login`
+- `lib/auth/config.ts` — BFF endpoints, public/admin path config
+- `lib/auth/auth-client.ts` — Session management (getSession, login, logout, refresh)
+- `lib/auth/auth-context.tsx` — AuthProvider, useAuth, useHasRole hooks
+- `app/api/auth/[...path]/route.ts` — Proxy to auth-bff service
+- `app/login/page.tsx` — Login form
+
+**API Routes (mock data only):**
+- `app/api/tenants/route.ts` — Returns hardcoded tenant list
+- `app/api/tickets/route.ts` — Returns hardcoded ticket list
+
+**K8s / Infrastructure:**
+- Helm chart at `tesserix-k8s/charts/apps/company/` with env vars:
+  - `TENANT_SERVICE_URL=http://tenant-service.marketplace.svc.cluster.local:8080`
+  - `TICKETS_SERVICE_URL=http://tickets-service.marketplace.svc.cluster.local:8080/api/v1`
+  - `AUTH_BFF_URL=http://auth-bff.marketplace.svc.cluster.local:8080`
+- VirtualService routes `/auth/*` to auth-bff for OIDC login flow
+- ArgoCD app at `argocd/prod/apps/global/company.yaml`
+
+**Backend Services (already running in K8s):**
+- `tenant-service` (Go) — Full CRUD, membership, slug management, onboarding
+- `tickets-service` (Go) — Full CRUD, comments, status transitions, email notifications
+- `auth-bff` (Node.js) — OIDC proxy to Keycloak dual realms
+- `notification-service` (Go) — Email templates for ticket status changes
+
+### What's Missing
+
+1. API routes are mock — not connected to real backend services
+2. Admin pages use hardcoded data — not fetching from API
+3. No loading/error states in admin pages
+4. No pagination support (backend supports it, UI has placeholder buttons)
+5. Session cookie name mismatch — middleware checks `session`, auth-bff sets `bff_session`
+6. No server-side auth validation in API routes (no session forwarding)
+7. Tenant detail tabs (Settings, Billing, Activity) are empty placeholders
+8. No "Visit Store" link logic (needs to construct URL from slug + BASE_DOMAIN)
+
+---
+
+## Phase 1: Wire Up Real Data (MVP)
+
+**Goal:** Replace all mock data with real API calls. Make the admin portal functional with live data from tenant-service and tickets-service.
+
+### Step 1: Fix Auth Cookie & Add API Auth Helper
+
+**Problem:** Middleware checks for `session` cookie but auth-bff sets `bff_session`.
+
+**Files:**
+- `middleware.ts` — Change cookie name from `session` to `bff_session`
+- `lib/api/admin-fetch.ts` (new) — Server-side fetch helper that:
+  - Reads `bff_session` cookie from the request
+  - Forwards it to backend services
+  - Handles 401 responses (redirect to login)
+  - Adds standard headers (Content-Type, X-Internal-Service)
+
+### Step 2: Replace Mock API Routes with Real Proxies
+
+Replace mock data in API routes with proxies to real backend services.
+
+**Files to modify:**
+
+`app/api/tenants/route.ts` — Proxy to tenant-service:
+- GET `/api/tenants` → `TENANT_SERVICE_URL/api/v1/users/me/tenants` (platform admin gets all)
+- POST `/api/tenants` → `TENANT_SERVICE_URL/api/v1/tenants/create-for-user`
+
+`app/api/tenants/[id]/route.ts` (new) — Single tenant operations:
+- GET `/api/tenants/:id` → `TENANT_SERVICE_URL/internal/tenants/:id`
+- DELETE `/api/tenants/:id` → `TENANT_SERVICE_URL/api/v1/tenants/:id`
+
+`app/api/tickets/route.ts` — Proxy to tickets-service:
+- GET `/api/tickets` → `TICKETS_SERVICE_URL/tickets` (with query params)
+- POST `/api/tickets` → `TICKETS_SERVICE_URL/tickets`
+
+`app/api/tickets/[id]/route.ts` (new) — Single ticket operations:
+- GET `/api/tickets/:id` → `TICKETS_SERVICE_URL/tickets/:id`
+- PUT `/api/tickets/:id` → `TICKETS_SERVICE_URL/tickets/:id`
+
+`app/api/tickets/[id]/status/route.ts` (new) — Ticket status updates:
+- PUT `/api/tickets/:id/status` → `TICKETS_SERVICE_URL/tickets/:id/status`
+
+`app/api/tickets/[id]/comments/route.ts` (new) — Ticket comments:
+- POST `/api/tickets/:id/comments` → `TICKETS_SERVICE_URL/tickets/:id/comments`
+
+### Step 3: Add Data Fetching Hooks
+
+Create reusable hooks for data fetching with loading, error, and pagination states.
+
+**Files:**
+
+`lib/api/use-api.ts` (new) — Generic fetch hook:
+- `useApi<T>(url, options)` — SWR-like hook with fetch, loading, error, mutate
+- Handles auth errors (401 → redirect to login)
+- Supports query params for filtering/pagination
+
+`lib/api/tenants.ts` (new) — Tenant-specific API functions:
+- `useTenants(filters)` — List tenants with search/status/pagination
+- `useTenant(id)` — Single tenant detail
+- `deleteTenant(id)` — Delete tenant
+
+`lib/api/tickets.ts` (new) — Ticket-specific API functions:
+- `useTickets(filters)` — List tickets with search/status/priority/pagination
+- `useTicket(id)` — Single ticket detail
+- `updateTicketStatus(id, status)` — Change ticket status
+- `addComment(id, content)` — Add comment to ticket
+
+### Step 4: Wire Up Dashboard Page
+
+Replace hardcoded stats and recent items with real API data.
+
+**File:** `app/(admin)/dashboard/page.tsx`
+- Fetch tenant count from `/api/tenants?limit=1` (get total from response)
+- Fetch open ticket count from `/api/tickets?status=open&limit=1`
+- Fetch recent tenants from `/api/tenants?limit=4&sort=created_at:desc`
+- Fetch recent tickets from `/api/tickets?limit=4&sort=updated_at:desc`
+- Add loading skeletons while data loads
+- Add error states with retry
+
+### Step 5: Wire Up Tenants List Page
+
+**File:** `app/(admin)/tenants/page.tsx`
+- Replace hardcoded array with `useTenants()` hook
+- Wire search input to debounced API query
+- Wire status filter to API query
+- Implement real pagination (Previous/Next buttons)
+- Add loading skeleton for table
+- Add empty state when no tenants found
+- Wire "Visit Store" link to `https://{slug}.{BASE_DOMAIN}`
+
+### Step 6: Wire Up Tenant Detail Page
+
+**File:** `app/(admin)/tenants/[id]/page.tsx`
+- Fetch tenant by ID from `/api/tenants/:id`
+- Show real tenant data (name, slug, email, status, plan, domain, etc.)
+- Wire "Visit Store" button to real URL
+- Wire Suspend/Activate buttons to real API calls
+- Add loading state
+- Add 404 handling for invalid tenant IDs
+
+### Step 7: Wire Up Tickets List Page
+
+**File:** `app/(admin)/tickets/page.tsx`
+- Replace hardcoded array with `useTickets()` hook
+- Wire search, status filter, priority filter to API queries
+- Implement real pagination
+- Wire action dropdown items (Mark as In Progress, Resolved, Close) to status API
+- Add loading skeleton
+- Add empty state
+
+### Step 8: Wire Up Ticket Detail Page
+
+**File:** `app/(admin)/tickets/[id]/page.tsx`
+- Fetch ticket by ID from `/api/tickets/:id`
+- Display real ticket data with comments
+- Wire comment form to POST `/api/tickets/:id/comments`
+- Wire status dropdown to PUT `/api/tickets/:id/status`
+- Add loading state
+- Add optimistic UI updates for comments and status changes
+
+### Step 9: Add Loading & Error Components
+
+**Files:**
+- `components/admin/table-skeleton.tsx` (new) — Skeleton for data tables
+- `components/admin/error-state.tsx` (new) — Error display with retry button
+- `components/admin/empty-state.tsx` (new) — Empty state for lists
+
+### Step 10: Build Verification & Testing
+
+- `npm run build` — Ensure no build errors
+- Test with `NEXT_PUBLIC_DEV_AUTH_BYPASS=true` locally
+- Verify API proxy routes work with backend services
+- Test pagination, search, filtering
+- Test ticket status changes and comments
+- Test auth flow (login → dashboard → logout)
+
+---
+
+## Phase 2: Content Management (Future)
+
+- Migrate Mark8ly internal content editor from port-forward setup
+- CMS pages for managing Mark8ly storefront content
+- Theme/template management
+- Media/asset management
+
+## Phase 3: Subscription & Billing (Future)
+
+- Payment gateway configuration (Stripe/Razorpay)
+- Subscription plan management
+- Invoice generation and history
+- Usage metering dashboard
+
+## Phase 4: Advanced Features (Future)
+
+- Email template editor
+- Feature flags management (GrowthBook integration)
+- System health monitoring dashboard
+- Audit log viewer
+- Staff management (roles, permissions)
+- Analytics dashboard (tenant growth, revenue)
+- Domain management (custom domain status, DNS verification)
+
+---
+
+## Architecture Notes
+
+### Auth Flow
+```
+Browser → tesserix.app/dashboard
+  → middleware.ts checks bff_session cookie
+  → No cookie? Redirect to /login
+  → /login → /auth/login (VirtualService routes to auth-bff)
+  → auth-bff → Keycloak (tesserix-internal realm)
+  → Keycloak login → callback → auth-bff sets bff_session cookie
+  → Redirect back to /dashboard
+```
+
+### API Proxy Pattern
+```
+Browser → /api/tenants (Next.js API route)
+  → Reads bff_session cookie
+  → Forwards request to TENANT_SERVICE_URL with auth headers
+  → Returns response to browser
+```
+
+All backend calls go through Next.js API routes (BFF pattern). The browser never calls backend services directly. This:
+- Keeps service URLs internal (not exposed to client)
+- Allows server-side auth validation
+- Provides a single point for error handling and response transformation
+
+### Environment Variables
+| Variable | Where Set | Purpose |
+|----------|-----------|---------|
+| `TENANT_SERVICE_URL` | K8s env / ArgoCD | Backend tenant service URL |
+| `TICKETS_SERVICE_URL` | K8s env / ArgoCD | Backend tickets service URL |
+| `AUTH_BFF_URL` | K8s env / ArgoCD | Auth BFF for session validation |
+| `NEXT_PUBLIC_DEV_AUTH_BYPASS` | Local .env only | Dev mode skip auth |
+| `NEXT_PUBLIC_BASE_DOMAIN` | K8s env / ArgoCD | Base domain for tenant URLs |

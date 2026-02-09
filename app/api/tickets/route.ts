@@ -1,98 +1,179 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminFetch, getSessionContext, apiError, proxyResponse } from '@/lib/api/admin-fetch';
 
-// Mock data - in production this would call the tickets service
-const mockTickets = [
-  {
-    id: "TKT-001",
-    subject: "Payment integration issue",
-    tenant: "Acme Store",
-    tenantId: "1",
-    status: "open",
-    priority: "high",
-    createdAt: "2024-01-15 10:30",
-    lastUpdated: "2024-01-15 14:22",
-  },
-  {
-    id: "TKT-002",
-    subject: "Custom domain setup request",
-    tenant: "Fresh Foods",
-    tenantId: "2",
-    status: "in-progress",
-    priority: "medium",
-    createdAt: "2024-01-14 09:15",
-    lastUpdated: "2024-01-15 11:00",
-  },
-];
-
+/**
+ * GET /api/tickets
+ *
+ * For platform admins: aggregates tickets across all tenants.
+ * First fetches tenant list, then fetches tickets from each tenant in parallel.
+ *
+ * For tenant users: fetches tickets for their own tenant only.
+ *
+ * Query params: page, limit, status, priority, search, tenantId (optional filter)
+ */
 export async function GET(request: NextRequest) {
-  // In production, validate admin authentication here
+  try {
+    const { searchParams } = new URL(request.url);
+    const page = searchParams.get('page') || '1';
+    const limit = searchParams.get('limit') || '20';
+    const status = searchParams.get('status');
+    const priority = searchParams.get('priority');
+    const search = searchParams.get('search');
+    const tenantIdFilter = searchParams.get('tenantId');
 
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status');
-  const priority = searchParams.get('priority');
-  const search = searchParams.get('search');
+    const session = await getSessionContext();
+    if (!session) {
+      return apiError('Unauthorized', 401);
+    }
 
-  let tickets = mockTickets;
+    // If a specific tenant is requested, fetch tickets for that tenant only
+    if (tenantIdFilter) {
+      return fetchTicketsForTenant(tenantIdFilter, { page, limit, status, priority, search });
+    }
 
-  if (status && status !== 'all') {
-    tickets = tickets.filter(t => t.status === status);
+    // If user has a tenant context (tenant admin), use that
+    if (session.tenantId) {
+      return fetchTicketsForTenant(session.tenantId, { page, limit, status, priority, search });
+    }
+
+    // Platform admin — aggregate tickets across all tenants
+    // First, get all tenant IDs
+    const tenantsResponse = await adminFetch('tenant', '/api/v1/users/me/tenants?limit=100');
+    if (!tenantsResponse.ok) {
+      return apiError('Failed to fetch tenants', tenantsResponse.status);
+    }
+
+    const tenantsData = await tenantsResponse.json();
+    const tenants = tenantsData.data || tenantsData || [];
+
+    if (!Array.isArray(tenants) || tenants.length === 0) {
+      return NextResponse.json({ data: [], total: 0, page: 1, pageSize: 20 });
+    }
+
+    // Fetch tickets from each tenant in parallel
+    const ticketPromises = tenants.map(async (tenant: { id: string; name?: string; slug?: string }) => {
+      try {
+        const params = new URLSearchParams({ page: '1', limit: '100' });
+        if (status && status !== 'all') params.set('status', status.toUpperCase());
+        if (priority && priority !== 'all') params.set('priority', priority.toUpperCase());
+
+        const response = await adminFetch('tickets', `/tickets?${params}`, {
+          tenantId: tenant.id,
+        });
+
+        if (!response.ok) return [];
+
+        const data = await response.json();
+        const tickets = data.data || [];
+        // Attach tenant info to each ticket for display
+        return tickets.map((t: Record<string, unknown>) => ({
+          ...t,
+          tenant_name: tenant.name || tenant.slug || tenant.id,
+          tenant_id: tenant.id,
+        }));
+      } catch {
+        return [];
+      }
+    });
+
+    const allTicketArrays = await Promise.all(ticketPromises);
+    let allTickets = allTicketArrays.flat();
+
+    // Apply search filter on aggregated results (backend search is per-tenant)
+    if (search) {
+      const searchLower = search.toLowerCase();
+      allTickets = allTickets.filter((t: Record<string, unknown>) =>
+        (t.title as string)?.toLowerCase().includes(searchLower) ||
+        (t.ticket_number as string)?.toLowerCase().includes(searchLower) ||
+        (t.tenant_name as string)?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Sort by updated_at descending
+    allTickets.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const dateA = new Date(a.updated_at as string || a.created_at as string || 0).getTime();
+      const dateB = new Date(b.updated_at as string || b.created_at as string || 0).getTime();
+      return dateB - dateA;
+    });
+
+    // Paginate
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const start = (pageNum - 1) * limitNum;
+    const paginatedTickets = allTickets.slice(start, start + limitNum);
+
+    return NextResponse.json({
+      data: paginatedTickets,
+      total: allTickets.length,
+      page: pageNum,
+      pageSize: limitNum,
+      totalPages: Math.ceil(allTickets.length / limitNum),
+    });
+  } catch (error) {
+    console.error('[Tickets API] Error:', error);
+    return apiError('Failed to fetch tickets');
   }
+}
 
-  if (priority && priority !== 'all') {
-    tickets = tickets.filter(t => t.priority === priority);
-  }
+async function fetchTicketsForTenant(
+  tenantId: string,
+  filters: { page: string; limit: string; status: string | null; priority: string | null; search: string | null }
+) {
+  const params = new URLSearchParams({ page: filters.page, limit: filters.limit });
+  if (filters.status && filters.status !== 'all') params.set('status', filters.status.toUpperCase());
+  if (filters.priority && filters.priority !== 'all') params.set('priority', filters.priority.toUpperCase());
+  if (filters.search) params.set('search', filters.search);
 
-  if (search) {
-    const searchLower = search.toLowerCase();
-    tickets = tickets.filter(t =>
-      t.subject.toLowerCase().includes(searchLower) ||
-      t.id.toLowerCase().includes(searchLower) ||
-      t.tenant.toLowerCase().includes(searchLower)
-    );
-  }
-
-  return NextResponse.json({
-    data: tickets,
-    total: tickets.length,
-    page: 1,
-    pageSize: 20,
+  const response = await adminFetch('tickets', `/tickets?${params}`, {
+    tenantId,
   });
+
+  if (response.status === 401) {
+    return apiError('Unauthorized', 401);
+  }
+
+  return proxyResponse(response);
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate required fields
-    if (!body.subject || !body.tenantId) {
+    if (!body.title) {
       return NextResponse.json(
-        { error: 'Subject and tenantId are required' },
+        { error: 'Title is required' },
         { status: 400 }
       );
     }
 
-    // In production, this would create a new ticket via the tickets service
-    const newTicket = {
-      id: `TKT-${String(Date.now()).slice(-6)}`,
-      subject: body.subject,
-      description: body.description || '',
-      tenant: body.tenantName || 'Unknown',
-      tenantId: body.tenantId,
-      status: 'open',
-      priority: body.priority || 'medium',
-      createdAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-    };
+    // tenantId is required for creating tickets
+    const tenantId = body.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'tenantId is required' },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: newTicket,
+    const response = await adminFetch('tickets', '/tickets', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: body.title,
+        description: body.description || '',
+        type: body.type || 'SUPPORT',
+        priority: (body.priority || 'MEDIUM').toUpperCase(),
+        tags: body.tags || [],
+      }),
+      tenantId,
     });
+
+    if (response.status === 401) {
+      return apiError('Unauthorized', 401);
+    }
+
+    return proxyResponse(response);
   } catch (error) {
     console.error('[Tickets API] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create ticket' },
-      { status: 500 }
-    );
+    return apiError('Failed to create ticket');
   }
 }

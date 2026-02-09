@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, Filter, Plus, MoreHorizontal, Clock } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Clock } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,79 +29,34 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-// Mock data
-const tickets = [
-  {
-    id: "TKT-001",
-    subject: "Payment integration issue",
-    tenant: "Acme Store",
-    tenantId: "1",
-    status: "open",
-    priority: "high",
-    createdAt: "2024-01-15 10:30",
-    lastUpdated: "2024-01-15 14:22",
-  },
-  {
-    id: "TKT-002",
-    subject: "Custom domain setup request",
-    tenant: "Fresh Foods",
-    tenantId: "2",
-    status: "in-progress",
-    priority: "medium",
-    createdAt: "2024-01-14 09:15",
-    lastUpdated: "2024-01-15 11:00",
-  },
-  {
-    id: "TKT-003",
-    subject: "Product import help needed",
-    tenant: "Tech Gadgets",
-    tenantId: "3",
-    status: "open",
-    priority: "low",
-    createdAt: "2024-01-13 16:45",
-    lastUpdated: "2024-01-13 16:45",
-  },
-  {
-    id: "TKT-004",
-    subject: "API rate limit question",
-    tenant: "Fashion Hub",
-    tenantId: "4",
-    status: "resolved",
-    priority: "medium",
-    createdAt: "2024-01-12 08:00",
-    lastUpdated: "2024-01-14 15:30",
-  },
-  {
-    id: "TKT-005",
-    subject: "Account access issue",
-    tenant: "Home Decor Plus",
-    tenantId: "5",
-    status: "closed",
-    priority: "high",
-    createdAt: "2024-01-10 11:20",
-    lastUpdated: "2024-01-11 09:15",
-  },
-];
+import { TableSkeleton } from "@/components/admin/table-skeleton";
+import { ErrorState } from "@/components/admin/error-state";
+import { EmptyState } from "@/components/admin/empty-state";
+import { useTickets, updateTicketStatus, type Ticket } from "@/lib/api/tickets";
 
 function getStatusColor(status: string) {
-  switch (status) {
+  switch (status?.toLowerCase()) {
     case "open":
       return "info";
+    case "in_progress":
     case "in-progress":
       return "warning";
     case "resolved":
       return "success";
     case "closed":
       return "secondary";
+    case "escalated":
+      return "destructive";
     default:
       return "secondary";
   }
 }
 
 function getPriorityColor(priority: string) {
-  switch (priority) {
+  switch (priority?.toLowerCase()) {
     case "high":
+    case "critical":
+    case "urgent":
       return "destructive";
     case "medium":
       return "warning";
@@ -112,20 +67,44 @@ function getPriorityColor(priority: string) {
   }
 }
 
+function formatStatus(status: string) {
+  return status?.toLowerCase().replace(/_/g, " ") || "";
+}
+
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useMemo(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 export default function TicketsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const debouncedSearch = useDebounce(search, 300);
 
-  const filteredTickets = tickets.filter((ticket) => {
-    const matchesSearch =
-      ticket.subject.toLowerCase().includes(search.toLowerCase()) ||
-      ticket.id.toLowerCase().includes(search.toLowerCase()) ||
-      ticket.tenant.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesPriority;
+  const { data, isLoading, error, mutate } = useTickets({
+    search: debouncedSearch || undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+    priority: priorityFilter !== "all" ? priorityFilter : undefined,
+    page,
+    limit: 20,
   });
+
+  const tickets = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? Math.ceil(total / 20);
+
+  async function handleStatusChange(ticketId: string, newStatus: string) {
+    const { error } = await updateTicketStatus(ticketId, newStatus);
+    if (!error) {
+      mutate();
+    }
+  }
 
   return (
     <>
@@ -142,11 +121,11 @@ export default function TicketsPage() {
             <Input
               placeholder="Search tickets..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="pl-9"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
             <SelectTrigger className="w-full sm:w-40">
               <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Status" />
@@ -154,17 +133,19 @@ export default function TicketsPage() {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="in-progress">In Progress</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
               <SelectItem value="resolved">Resolved</SelectItem>
               <SelectItem value="closed">Closed</SelectItem>
+              <SelectItem value="escalated">Escalated</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <Select value={priorityFilter} onValueChange={(v) => { setPriorityFilter(v); setPage(1); }}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Priority</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
               <SelectItem value="high">High</SelectItem>
               <SelectItem value="medium">Medium</SelectItem>
               <SelectItem value="low">Low</SelectItem>
@@ -172,117 +153,140 @@ export default function TicketsPage() {
           </Select>
         </div>
 
-        {/* Table */}
-        <div className="rounded-lg border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Subject</TableHead>
-                <TableHead>Tenant</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Last Updated</TableHead>
-                <TableHead className="w-10"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTickets.map((ticket) => (
-                <TableRow key={ticket.id}>
-                  <TableCell className="font-mono text-sm">
-                    {ticket.id}
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      href={`/tickets/${ticket.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {ticket.subject}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      href={`/tenants/${ticket.tenantId}`}
-                      className="text-muted-foreground hover:text-foreground hover:underline"
-                    >
-                      {ticket.tenant}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusColor(ticket.status)}>
-                      {ticket.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getPriorityColor(ticket.priority)}>
-                      {ticket.priority}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {ticket.lastUpdated}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/tickets/${ticket.id}`}>
-                            View Details
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {ticket.status === "open" && (
-                          <DropdownMenuItem>
-                            Mark as In Progress
-                          </DropdownMenuItem>
+        {/* Content */}
+        {isLoading ? (
+          <TableSkeleton columns={7} rows={5} />
+        ) : error ? (
+          <ErrorState message={error} onRetry={mutate} />
+        ) : tickets.length === 0 ? (
+          <EmptyState
+            message="No tickets found"
+            description={search ? "Try adjusting your search or filters" : undefined}
+          />
+        ) : (
+          <>
+            <div className="rounded-lg border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Last Updated</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tickets.map((ticket: Ticket) => (
+                    <TableRow key={ticket.id}>
+                      <TableCell className="font-mono text-sm">
+                        {ticket.ticket_number || ticket.id}
+                      </TableCell>
+                      <TableCell>
+                        <Link
+                          href={`/tickets/${ticket.id}`}
+                          className="font-medium hover:underline"
+                        >
+                          {ticket.title}
+                        </Link>
+                        {ticket.created_by_name && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            by {ticket.created_by_name}
+                          </p>
                         )}
-                        {ticket.status === "in-progress" && (
-                          <DropdownMenuItem>
-                            Mark as Resolved
-                          </DropdownMenuItem>
+                      </TableCell>
+                      <TableCell>
+                        {ticket.type && (
+                          <Badge variant="secondary" className="text-xs">
+                            {ticket.type.toLowerCase().replace(/_/g, " ")}
+                          </Badge>
                         )}
-                        {ticket.status === "resolved" && (
-                          <DropdownMenuItem>
-                            Close Ticket
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          {filteredTickets.length === 0 && (
-            <div className="py-12 text-center">
-              <p className="text-muted-foreground">No tickets found</p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusColor(ticket.status)}>
+                          {formatStatus(ticket.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getPriorityColor(ticket.priority)}>
+                          {ticket.priority?.toLowerCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {ticket.updated_at
+                            ? new Date(ticket.updated_at).toLocaleDateString()
+                            : "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/tickets/${ticket.id}`}>
+                                View Details
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {ticket.status?.toLowerCase() === "open" && (
+                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "in_progress")}>
+                                Mark as In Progress
+                              </DropdownMenuItem>
+                            )}
+                            {ticket.status?.toLowerCase() === "in_progress" && (
+                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "resolved")}>
+                                Mark as Resolved
+                              </DropdownMenuItem>
+                            )}
+                            {ticket.status?.toLowerCase() === "resolved" && (
+                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "closed")}>
+                                Close Ticket
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          )}
-        </div>
 
-        {/* Pagination placeholder */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredTickets.length} of {tickets.length} tickets
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              Next
-            </Button>
-          </div>
-        </div>
+            {/* Pagination */}
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {tickets.length} of {total} tickets
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </>
   );

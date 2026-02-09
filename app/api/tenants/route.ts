@@ -1,89 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Mock data - in production this would call the tenant service
-const mockTenants = [
-  {
-    id: "1",
-    name: "Acme Store",
-    slug: "acme-store",
-    email: "admin@acme-store.com",
-    status: "active",
-    plan: "professional",
-    createdAt: "2024-01-15",
-  },
-  {
-    id: "2",
-    name: "Fresh Foods",
-    slug: "fresh-foods",
-    email: "contact@freshfoods.com",
-    status: "active",
-    plan: "starter",
-    createdAt: "2024-01-14",
-  },
-];
+import { adminFetch, apiError, proxyResponse } from '@/lib/api/admin-fetch';
 
 export async function GET(request: NextRequest) {
-  // In production, validate admin authentication here
+  try {
+    const { searchParams } = new URL(request.url);
+    const page = searchParams.get('page') || '1';
+    const limit = searchParams.get('limit') || '20';
+    const status = searchParams.get('status');
+    const search = searchParams.get('search');
 
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status');
-  const search = searchParams.get('search');
+    // Build query string for tenant-service
+    const params = new URLSearchParams({ page, limit });
+    if (status && status !== 'all') params.set('status', status);
+    if (search) params.set('search', search);
 
-  let tenants = mockTenants;
+    // Platform admin fetches all tenants via membership endpoint
+    const response = await adminFetch('tenant', `/api/v1/users/me/tenants?${params}`);
 
-  if (status && status !== 'all') {
-    tenants = tenants.filter(t => t.status === status);
+    if (response.status === 401) {
+      return apiError('Unauthorized', 401);
+    }
+
+    return proxyResponse(response);
+  } catch (error) {
+    console.error('[Tenants API] Error:', error);
+    return apiError('Failed to fetch tenants');
   }
-
-  if (search) {
-    const searchLower = search.toLowerCase();
-    tenants = tenants.filter(t =>
-      t.name.toLowerCase().includes(searchLower) ||
-      t.slug.toLowerCase().includes(searchLower) ||
-      t.email.toLowerCase().includes(searchLower)
-    );
-  }
-
-  return NextResponse.json({
-    data: tenants,
-    total: tenants.length,
-    page: 1,
-    pageSize: 20,
-  });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate required fields
-    if (!body.name || !body.email) {
+    if (!body.name) {
       return NextResponse.json(
-        { error: 'Name and email are required' },
+        { error: 'Name is required' },
         { status: 400 }
       );
     }
 
-    // In production, this would create a new tenant via the tenant service
-    const newTenant = {
-      id: String(Date.now()),
-      name: body.name,
-      slug: body.name.toLowerCase().replace(/\s+/g, '-'),
-      email: body.email,
-      status: 'pending',
-      plan: body.plan || 'starter',
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-
-    return NextResponse.json({
-      success: true,
-      data: newTenant,
+    const response = await adminFetch('tenant', '/api/v1/tenants/create-for-user', {
+      method: 'POST',
+      body: JSON.stringify(body),
     });
+
+    if (response.status === 401) {
+      return apiError('Unauthorized', 401);
+    }
+
+    return proxyResponse(response);
   } catch (error) {
     console.error('[Tenants API] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create tenant' },
-      { status: 500 }
-    );
+    return apiError('Failed to create tenant');
   }
 }

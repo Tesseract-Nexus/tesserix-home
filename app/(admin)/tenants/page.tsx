@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, Filter, Plus, MoreHorizontal, ExternalLink } from "lucide-react";
+import { Search, Filter, MoreHorizontal, ExternalLink } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,58 +29,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TableSkeleton } from "@/components/admin/table-skeleton";
+import { ErrorState } from "@/components/admin/error-state";
+import { EmptyState } from "@/components/admin/empty-state";
+import { useTenants, type Tenant } from "@/lib/api/tenants";
 
-// Mock data
-const tenants = [
-  {
-    id: "1",
-    name: "Acme Store",
-    slug: "acme-store",
-    email: "admin@acme-store.com",
-    status: "active",
-    plan: "professional",
-    createdAt: "2024-01-15",
-  },
-  {
-    id: "2",
-    name: "Fresh Foods",
-    slug: "fresh-foods",
-    email: "contact@freshfoods.com",
-    status: "active",
-    plan: "starter",
-    createdAt: "2024-01-14",
-  },
-  {
-    id: "3",
-    name: "Tech Gadgets",
-    slug: "tech-gadgets",
-    email: "support@techgadgets.io",
-    status: "pending",
-    plan: "professional",
-    createdAt: "2024-01-13",
-  },
-  {
-    id: "4",
-    name: "Fashion Hub",
-    slug: "fashion-hub",
-    email: "hello@fashionhub.co",
-    status: "active",
-    plan: "enterprise",
-    createdAt: "2024-01-12",
-  },
-  {
-    id: "5",
-    name: "Home Decor Plus",
-    slug: "home-decor-plus",
-    email: "info@homedecorplus.com",
-    status: "suspended",
-    plan: "starter",
-    createdAt: "2024-01-10",
-  },
-];
+const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || "tesserix.app";
 
 function getStatusColor(status: string) {
-  switch (status) {
+  switch (status?.toLowerCase()) {
     case "active":
       return "success";
     case "pending":
@@ -92,31 +49,32 @@ function getStatusColor(status: string) {
   }
 }
 
-function getPlanColor(plan: string) {
-  switch (plan) {
-    case "enterprise":
-      return "default";
-    case "professional":
-      return "info";
-    case "starter":
-      return "secondary";
-    default:
-      return "secondary";
-  }
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useMemo(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
 }
 
 export default function TenantsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const debouncedSearch = useDebounce(search, 300);
 
-  const filteredTenants = tenants.filter((tenant) => {
-    const matchesSearch =
-      tenant.name.toLowerCase().includes(search.toLowerCase()) ||
-      tenant.slug.toLowerCase().includes(search.toLowerCase()) ||
-      tenant.email.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || tenant.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  const { data, isLoading, error, mutate } = useTenants({
+    search: debouncedSearch || undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+    page,
+    limit: 20,
   });
+
+  const tenants = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const pageSize = data?.pageSize ?? 20;
+  const totalPages = Math.ceil(total / pageSize);
 
   return (
     <>
@@ -133,11 +91,11 @@ export default function TenantsPage() {
             <Input
               placeholder="Search tenants..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="pl-9"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
             <SelectTrigger className="w-full sm:w-40">
               <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Status" />
@@ -149,108 +107,134 @@ export default function TenantsPage() {
               <SelectItem value="suspended">Suspended</SelectItem>
             </SelectContent>
           </Select>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Tenant
-          </Button>
         </div>
 
-        {/* Table */}
-        <div className="rounded-lg border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="w-10"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTenants.map((tenant) => (
-                <TableRow key={tenant.id}>
-                  <TableCell>
-                    <Link
-                      href={`/tenants/${tenant.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {tenant.name}
-                    </Link>
-                    <p className="text-sm text-muted-foreground">{tenant.slug}</p>
-                  </TableCell>
-                  <TableCell>{tenant.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusColor(tenant.status)}>
-                      {tenant.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getPlanColor(tenant.plan)}>
-                      {tenant.plan}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {tenant.createdAt}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/tenants/${tenant.id}`}>
-                            View Details
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Visit Store
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {tenant.status === "active" ? (
-                          <DropdownMenuItem className="text-destructive">
-                            Suspend Tenant
-                          </DropdownMenuItem>
-                        ) : tenant.status === "suspended" ? (
-                          <DropdownMenuItem>
-                            Activate Tenant
-                          </DropdownMenuItem>
-                        ) : null}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          {filteredTenants.length === 0 && (
-            <div className="py-12 text-center">
-              <p className="text-muted-foreground">No tenants found</p>
+        {/* Content */}
+        {isLoading ? (
+          <TableSkeleton columns={6} rows={5} />
+        ) : error ? (
+          <ErrorState message={error} onRetry={mutate} />
+        ) : tenants.length === 0 ? (
+          <EmptyState
+            message="No tenants found"
+            description={search ? "Try adjusting your search or filters" : undefined}
+          />
+        ) : (
+          <>
+            {/* Table */}
+            <div className="rounded-lg border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tenants.map((tenant: Tenant) => (
+                    <TableRow key={tenant.id}>
+                      <TableCell>
+                        <Link
+                          href={`/tenants/${tenant.id}`}
+                          className="font-medium hover:underline"
+                        >
+                          {tenant.name}
+                        </Link>
+                        <p className="text-sm text-muted-foreground">{tenant.slug}</p>
+                      </TableCell>
+                      <TableCell>{tenant.email || "-"}</TableCell>
+                      <TableCell>
+                        {tenant.status && (
+                          <Badge variant={getStatusColor(tenant.status)}>
+                            {tenant.status}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {tenant.plan ? (
+                          <Badge variant="secondary">{tenant.plan}</Badge>
+                        ) : "-"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {tenant.created_at
+                          ? new Date(tenant.created_at).toLocaleDateString()
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/tenants/${tenant.id}`}>
+                                View Details
+                              </Link>
+                            </DropdownMenuItem>
+                            {tenant.slug && (
+                              <DropdownMenuItem asChild>
+                                <a
+                                  href={`https://${tenant.slug}.${BASE_DOMAIN}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <ExternalLink className="mr-2 h-4 w-4" />
+                                  Visit Store
+                                </a>
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            {tenant.status === "active" ? (
+                              <DropdownMenuItem className="text-destructive">
+                                Suspend Tenant
+                              </DropdownMenuItem>
+                            ) : tenant.status === "suspended" ? (
+                              <DropdownMenuItem>
+                                Activate Tenant
+                              </DropdownMenuItem>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          )}
-        </div>
 
-        {/* Pagination placeholder */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredTenants.length} of {tenants.length} tenants
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              Next
-            </Button>
-          </div>
-        </div>
+            {/* Pagination */}
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {tenants.length} of {total} tenants
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(page + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </>
   );
