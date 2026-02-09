@@ -3,20 +3,30 @@ import { NextRequest, NextResponse } from 'next/server';
 const BFF_BASE_URL = process.env.BFF_BASE_URL || process.env.AUTH_BFF_URL || 'http://localhost:8080';
 
 /**
- * Proxy auth requests to the BFF
+ * Proxy auth requests to the BFF.
+ *
+ * For redirects (302): extracts Set-Cookie headers and sets them on the
+ * NextResponse redirect, ensuring cookies survive the proxy layer.
+ * For other responses: forwards headers, status, and body as-is.
  */
 async function proxyToBff(request: NextRequest, path: string) {
-  // Preserve query string (e.g., ?code=xxx&state=yyy for OIDC callback)
   const queryString = request.nextUrl.search;
   const url = `${BFF_BASE_URL}${path}${queryString}`;
 
   const headers = new Headers();
   request.headers.forEach((value, key) => {
-    // Skip headers that shouldn't be forwarded
     if (!['host', 'connection', 'content-length'].includes(key.toLowerCase())) {
       headers.set(key, value);
     }
   });
+
+  // Ensure x-forwarded-host is set for auth-bff host detection
+  if (!headers.has('x-forwarded-host')) {
+    headers.set('x-forwarded-host', request.headers.get('host') || '');
+  }
+  if (!headers.has('x-forwarded-proto')) {
+    headers.set('x-forwarded-proto', 'https');
+  }
 
   const init: RequestInit = {
     method: request.method,
@@ -35,16 +45,36 @@ async function proxyToBff(request: NextRequest, path: string) {
   try {
     const response = await fetch(url, init);
 
+    // Collect Set-Cookie headers
+    const setCookies = response.headers.getSetCookie?.() || [];
+
+    // Handle redirects: build a NextResponse.redirect and attach cookies
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (location) {
+        // Resolve relative URLs against the request origin
+        const redirectUrl = location.startsWith('http')
+          ? location
+          : new URL(location, request.nextUrl.origin).toString();
+
+        const redirectResponse = NextResponse.redirect(redirectUrl, response.status);
+
+        // Attach all Set-Cookie headers from auth-bff
+        for (const cookie of setCookies) {
+          redirectResponse.headers.append('set-cookie', cookie);
+        }
+
+        return redirectResponse;
+      }
+    }
+
+    // Non-redirect responses: forward as-is
     const responseHeaders = new Headers();
     response.headers.forEach((value, key) => {
-      // Skip set-cookie here — handled separately below
       if (key.toLowerCase() !== 'set-cookie') {
         responseHeaders.set(key, value);
       }
     });
-
-    // Forward all Set-Cookie headers individually (Headers API merges them)
-    const setCookies = response.headers.getSetCookie?.() || [];
     for (const cookie of setCookies) {
       responseHeaders.append('set-cookie', cookie);
     }
