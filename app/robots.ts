@@ -8,27 +8,27 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/dashboard/", "/admin/", "/login"],
+        disallow: ["/api/", "/admin/", "/login"],
       },
       {
         userAgent: "GPTBot",
         allow: "/",
-        disallow: ["/api/", "/dashboard/", "/admin/", "/login"],
+        disallow: ["/api/", "/admin/", "/login"],
       },
       {
         userAgent: "ChatGPT-User",
         allow: "/",
-        disallow: ["/api/", "/dashboard/", "/admin/", "/login"],
+        disallow: ["/api/", "/admin/", "/login"],
       },
       {
         userAgent: "Claude-Web",
         allow: "/",
-        disallow: ["/api/", "/dashboard/", "/admin/", "/login"],
+        disallow: ["/api/", "/admin/", "/login"],
       },
       {
         userAgent: "Anthropic-AI",
         allow: "/",
-        disallow: ["/api/", "/dashboard/", "/admin/", "/login"],
+        disallow: ["/api/", "/admin/", "/login"],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

@@ -19,19 +19,6 @@ const PUBLIC_PATHS = [
   '/api/contact',
 ];
 
-// Admin paths that require authentication
-const ADMIN_PATHS = [
-  '/dashboard',
-  '/tenants',
-  '/tickets',
-  '/content',
-  '/billing',
-  '/audit-logs',
-  '/system-health',
-  '/feature-flags',
-  '/email-templates',
-];
-
 function isPublicPath(pathname: string): boolean {
   // Check exact matches
   if (PUBLIC_PATHS.includes(pathname)) {
@@ -47,7 +34,7 @@ function isPublicPath(pathname: string): boolean {
 }
 
 function isAdminPath(pathname: string): boolean {
-  return ADMIN_PATHS.some(path => pathname.startsWith(path));
+  return pathname.startsWith('/admin');
 }
 
 export async function middleware(request: NextRequest) {

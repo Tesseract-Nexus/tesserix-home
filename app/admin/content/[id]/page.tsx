@@ -120,7 +120,7 @@ function ContentEditorForm({
     setSaving(false);
 
     if (!error) {
-      router.push(`/content`);
+      router.push(`/admin/content`);
     }
   }
 
@@ -158,7 +158,7 @@ function ContentEditorForm({
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
-            onClick={() => router.push(`/content`)}
+            onClick={() => router.push(`/admin/content`)}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Content Pages
@@ -467,7 +467,7 @@ export default function ContentEditorPage({
           <p className="text-muted-foreground">
             A tenant ID is required. Go back to{" "}
             <button
-              onClick={() => router.push("/content")}
+              onClick={() => router.push("/admin/content")}
               className="text-primary underline"
             >
               Content Pages
@@ -501,7 +501,7 @@ export default function ContentEditorPage({
           <p className="text-muted-foreground">
             This content page does not exist.{" "}
             <button
-              onClick={() => router.push(`/content`)}
+              onClick={() => router.push(`/admin/content`)}
               className="text-primary underline"
             >
               Back to Content Pages

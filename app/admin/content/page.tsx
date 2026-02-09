@@ -183,7 +183,7 @@ export default function ContentPagesPage() {
           />
           {selectedTenantId && (
             <Button
-              onClick={() => router.push(`/content/new?tenantId=${selectedTenantId}`)}
+              onClick={() => router.push(`/admin/content/new?tenantId=${selectedTenantId}`)}
             >
               <Plus className="mr-2 h-4 w-4" />
               New Page

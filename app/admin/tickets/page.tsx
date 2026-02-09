@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, Filter, MoreHorizontal, ExternalLink } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Clock } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,21 +32,43 @@ import {
 import { TableSkeleton } from "@/components/admin/table-skeleton";
 import { ErrorState } from "@/components/admin/error-state";
 import { EmptyState } from "@/components/admin/empty-state";
-import { useTenants, type Tenant } from "@/lib/api/tenants";
-
-const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || "tesserix.app";
+import { useTickets, updateTicketStatus, type Ticket } from "@/lib/api/tickets";
 
 function getStatusColor(status: string) {
   switch (status?.toLowerCase()) {
-    case "active":
-      return "success";
-    case "pending":
+    case "open":
+      return "info";
+    case "in_progress":
+    case "in-progress":
       return "warning";
-    case "suspended":
+    case "resolved":
+      return "success";
+    case "closed":
+      return "secondary";
+    case "escalated":
       return "destructive";
     default:
       return "secondary";
   }
+}
+
+function getPriorityColor(priority: string) {
+  switch (priority?.toLowerCase()) {
+    case "high":
+    case "critical":
+    case "urgent":
+      return "destructive";
+    case "medium":
+      return "warning";
+    case "low":
+      return "secondary";
+    default:
+      return "secondary";
+  }
+}
+
+function formatStatus(status: string) {
+  return status?.toLowerCase().replace(/_/g, " ") || "";
 }
 
 function useDebounce(value: string, delay: number) {
@@ -58,29 +80,37 @@ function useDebounce(value: string, delay: number) {
   return debouncedValue;
 }
 
-export default function TenantsPage() {
+export default function TicketsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebounce(search, 300);
 
-  const { data, isLoading, error, mutate } = useTenants({
+  const { data, isLoading, error, mutate } = useTickets({
     search: debouncedSearch || undefined,
     status: statusFilter !== "all" ? statusFilter : undefined,
+    priority: priorityFilter !== "all" ? priorityFilter : undefined,
     page,
     limit: 20,
   });
 
-  const tenants = data?.data ?? [];
+  const tickets = data?.data ?? [];
   const total = data?.total ?? 0;
-  const pageSize = data?.pageSize ?? 20;
-  const totalPages = Math.ceil(total / pageSize);
+  const totalPages = data?.totalPages ?? Math.ceil(total / 20);
+
+  async function handleStatusChange(ticketId: string, newStatus: string) {
+    const { error } = await updateTicketStatus(ticketId, newStatus);
+    if (!error) {
+      mutate();
+    }
+  }
 
   return (
     <>
       <AdminHeader
-        title="Tenants"
-        description="Manage all tenant businesses"
+        title="Support Tickets"
+        description="Manage support requests from tenants"
       />
 
       <main className="p-6 space-y-6">
@@ -89,7 +119,7 @@ export default function TenantsPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search tenants..."
+              placeholder="Search tickets..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="pl-9"
@@ -102,67 +132,95 @@ export default function TenantsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="resolved">Resolved</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+              <SelectItem value="escalated">Escalated</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={(v) => { setPriorityFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priority</SelectItem>
+              <SelectItem value="critical">Critical</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Content */}
         {isLoading ? (
-          <TableSkeleton columns={6} rows={5} />
+          <TableSkeleton columns={7} rows={5} />
         ) : error ? (
           <ErrorState message={error} onRetry={mutate} />
-        ) : tenants.length === 0 ? (
+        ) : tickets.length === 0 ? (
           <EmptyState
-            message="No tenants found"
+            message="No tickets found"
             description={search ? "Try adjusting your search or filters" : undefined}
           />
         ) : (
           <>
-            {/* Table */}
             <div className="rounded-lg border bg-card">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Last Updated</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenants.map((tenant: Tenant) => (
-                    <TableRow key={tenant.id}>
+                  {tickets.map((ticket: Ticket) => (
+                    <TableRow key={ticket.id}>
+                      <TableCell className="font-mono text-sm">
+                        {ticket.ticket_number || ticket.id}
+                      </TableCell>
                       <TableCell>
                         <Link
-                          href={`/tenants/${tenant.id}`}
+                          href={`/admin/tickets/${ticket.id}`}
                           className="font-medium hover:underline"
                         >
-                          {tenant.name}
+                          {ticket.title}
                         </Link>
-                        <p className="text-sm text-muted-foreground">{tenant.slug}</p>
+                        {ticket.created_by_name && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            by {ticket.created_by_name}
+                          </p>
+                        )}
                       </TableCell>
-                      <TableCell>{tenant.email || "-"}</TableCell>
                       <TableCell>
-                        {tenant.status && (
-                          <Badge variant={getStatusColor(tenant.status)}>
-                            {tenant.status}
+                        {ticket.type && (
+                          <Badge variant="secondary" className="text-xs">
+                            {ticket.type.toLowerCase().replace(/_/g, " ")}
                           </Badge>
                         )}
                       </TableCell>
                       <TableCell>
-                        {tenant.plan ? (
-                          <Badge variant="secondary">{tenant.plan}</Badge>
-                        ) : "-"}
+                        <Badge variant={getStatusColor(ticket.status)}>
+                          {formatStatus(ticket.status)}
+                        </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {tenant.created_at
-                          ? new Date(tenant.created_at).toLocaleDateString()
-                          : "-"}
+                      <TableCell>
+                        <Badge variant={getPriorityColor(ticket.priority)}>
+                          {ticket.priority?.toLowerCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {ticket.updated_at
+                            ? new Date(ticket.updated_at).toLocaleDateString()
+                            : "-"}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -174,32 +232,26 @@ export default function TenantsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/tenants/${tenant.id}`}>
+                              <Link href={`/admin/tickets/${ticket.id}`}>
                                 View Details
                               </Link>
                             </DropdownMenuItem>
-                            {tenant.slug && (
-                              <DropdownMenuItem asChild>
-                                <a
-                                  href={`https://${tenant.slug}.${BASE_DOMAIN}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <ExternalLink className="mr-2 h-4 w-4" />
-                                  Visit Store
-                                </a>
+                            <DropdownMenuSeparator />
+                            {ticket.status?.toLowerCase() === "open" && (
+                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "in_progress")}>
+                                Mark as In Progress
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuSeparator />
-                            {tenant.status === "active" ? (
-                              <DropdownMenuItem className="text-destructive">
-                                Suspend Tenant
+                            {ticket.status?.toLowerCase() === "in_progress" && (
+                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "resolved")}>
+                                Mark as Resolved
                               </DropdownMenuItem>
-                            ) : tenant.status === "suspended" ? (
-                              <DropdownMenuItem>
-                                Activate Tenant
+                            )}
+                            {ticket.status?.toLowerCase() === "resolved" && (
+                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "closed")}>
+                                Close Ticket
                               </DropdownMenuItem>
-                            ) : null}
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -212,7 +264,7 @@ export default function TenantsPage() {
             {/* Pagination */}
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {tenants.length} of {total} tenants
+                Showing {tickets.length} of {total} tickets
               </p>
               <div className="flex gap-2">
                 <Button

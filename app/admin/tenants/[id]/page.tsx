@@ -349,7 +349,7 @@ export default function TenantDetailPage({
       <main className="p-6 space-y-6">
         {/* Back link */}
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/tenants">
+          <Link href="/admin/tenants">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Tenants
           </Link>

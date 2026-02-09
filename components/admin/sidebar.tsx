@@ -26,19 +26,19 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/auth/auth-context";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Tenants", href: "/tenants", icon: Users },
-  { name: "Tickets", href: "/tickets", icon: Ticket },
-  { name: "Content", href: "/content", icon: FileText },
-  { name: "Billing", href: "/billing", icon: CreditCard },
-  { name: "Audit Logs", href: "/audit-logs", icon: ScrollText },
-  { name: "System Health", href: "/system-health", icon: Activity },
-  { name: "Feature Flags", href: "/feature-flags", icon: ToggleLeft },
-  { name: "Email Templates", href: "/email-templates", icon: Mail },
+  { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { name: "Tenants", href: "/admin/tenants", icon: Users },
+  { name: "Tickets", href: "/admin/tickets", icon: Ticket },
+  { name: "Content", href: "/admin/content", icon: FileText },
+  { name: "Billing", href: "/admin/billing", icon: CreditCard },
+  { name: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
+  { name: "System Health", href: "/admin/system-health", icon: Activity },
+  { name: "Feature Flags", href: "/admin/feature-flags", icon: ToggleLeft },
+  { name: "Email Templates", href: "/admin/email-templates", icon: Mail },
 ];
 
 const secondaryNavigation = [
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
 export function AdminSidebar() {
@@ -50,7 +50,7 @@ export function AdminSidebar() {
     <>
       {/* Logo */}
       <div className="flex h-16 items-center px-6">
-        <Link href="/dashboard" className="flex items-center">
+        <Link href="/admin/dashboard" className="flex items-center">
           <Image src="/logo.png" alt="Tesserix" width={94} height={28} />
           <span className="ml-2 rounded bg-sidebar-accent px-2 py-0.5 text-xs font-medium text-sidebar-accent-foreground">
             Admin

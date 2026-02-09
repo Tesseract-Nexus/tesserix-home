@@ -82,9 +82,7 @@ export const PUBLIC_PATHS = [
  * Admin paths that require authentication
  */
 export const ADMIN_PATHS = [
-  '/dashboard',
-  '/tenants',
-  '/tickets',
+  '/admin',
 ];
 
 /**

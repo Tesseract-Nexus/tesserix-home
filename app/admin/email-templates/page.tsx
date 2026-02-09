@@ -172,7 +172,7 @@ export default function EmailTemplatesPage() {
             </button>
           </div>
           {activeTab === "templates" && (
-            <Link href="/email-templates/new">
+            <Link href="/admin/email-templates/new">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 New Template
@@ -200,7 +200,7 @@ export default function EmailTemplatesPage() {
                   <p className="text-muted-foreground">
                     No email templates yet.
                   </p>
-                  <Link href="/email-templates/new">
+                  <Link href="/admin/email-templates/new">
                     <Button variant="outline" className="mt-4">
                       <Plus className="mr-2 h-4 w-4" />
                       Create your first template
@@ -241,7 +241,7 @@ export default function EmailTemplatesPage() {
                       >
                         <td className="px-4 py-3">
                           <Link
-                            href={`/email-templates/${template.id}`}
+                            href={`/admin/email-templates/${template.id}`}
                             className="font-medium text-primary hover:underline"
                           >
                             {template.name}
@@ -268,7 +268,7 @@ export default function EmailTemplatesPage() {
                             : "\u2014"}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <Link href={`/email-templates/${template.id}`}>
+                          <Link href={`/admin/email-templates/${template.id}`}>
                             <Button variant="ghost" size="sm">
                               Edit
                             </Button>

@@ -139,7 +139,7 @@ export default function DashboardPage() {
                 <CardDescription>Newly onboarded businesses</CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/tenants">
+                <Link href="/admin/tenants">
                   View all
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -161,7 +161,7 @@ export default function DashboardPage() {
                     >
                       <div>
                         <Link
-                          href={`/tenants/${tenant.id}`}
+                          href={`/admin/tenants/${tenant.id}`}
                           className="font-medium hover:underline"
                         >
                           {tenant.name}
@@ -190,7 +190,7 @@ export default function DashboardPage() {
                 <CardDescription>Support requests from tenants</CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/tickets">
+                <Link href="/admin/tickets">
                   View all
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -212,7 +212,7 @@ export default function DashboardPage() {
                     >
                       <div className="flex-1 min-w-0">
                         <Link
-                          href={`/tickets/${ticket.id}`}
+                          href={`/admin/tickets/${ticket.id}`}
                           className="font-medium hover:underline block truncate"
                         >
                           {ticket.title}

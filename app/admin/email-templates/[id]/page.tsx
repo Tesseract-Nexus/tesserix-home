@@ -86,7 +86,7 @@ export default function EmailTemplateEditorPage({
       const result = await createTemplate(data);
       setSaving(false);
       if (result.data) {
-        router.push(`/email-templates/${result.data.id}`);
+        router.push(`/admin/email-templates/${result.data.id}`);
       }
     } else {
       await updateTemplate(id, data);
@@ -100,7 +100,7 @@ export default function EmailTemplateEditorPage({
     setDeleting(true);
     await deleteTemplate(id);
     setDeleting(false);
-    router.push("/email-templates");
+    router.push("/admin/email-templates");
   }
 
   async function handleTestSend() {
@@ -154,7 +154,7 @@ export default function EmailTemplateEditorPage({
         {/* Action bar */}
         <div className="flex items-center justify-between">
           <Link
-            href="/email-templates"
+            href="/admin/email-templates"
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />

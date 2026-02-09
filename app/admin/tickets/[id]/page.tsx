@@ -130,7 +130,7 @@ export default function TicketDetailPage({
       <main className="p-6 space-y-6">
         {/* Back link */}
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/tickets">
+          <Link href="/admin/tickets">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Tickets
           </Link>
@@ -289,7 +289,7 @@ export default function TicketDetailPage({
                       <div>
                         <p className="text-xs text-muted-foreground">Tenant</p>
                         <Link
-                          href={`/tenants/${ticket.tenant_id}`}
+                          href={`/admin/tenants/${ticket.tenant_id}`}
                           className="font-medium text-primary hover:underline"
                         >
                           {ticket.tenant_name || ticket.tenant_id}

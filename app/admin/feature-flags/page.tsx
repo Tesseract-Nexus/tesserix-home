@@ -253,7 +253,7 @@ export default function FeatureFlagsPage() {
                       >
                         <td className="px-4 py-3">
                           <Link
-                            href={`/feature-flags/${exp.id}`}
+                            href={`/admin/feature-flags/${exp.id}`}
                             className="font-medium text-primary hover:underline"
                           >
                             {exp.name}
