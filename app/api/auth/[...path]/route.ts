@@ -3,10 +3,45 @@ import { NextRequest, NextResponse } from 'next/server';
 const BFF_BASE_URL = process.env.BFF_BASE_URL || process.env.AUTH_BFF_URL || 'http://localhost:8080';
 
 /**
+ * Parse a raw Set-Cookie string into name, value, and options
+ * for use with NextResponse.cookies.set().
+ */
+function parseSetCookie(raw: string): { name: string; value: string; options: Record<string, unknown> } | null {
+  const parts = raw.split(';').map(p => p.trim());
+  if (!parts[0]) return null;
+
+  const eqIndex = parts[0].indexOf('=');
+  if (eqIndex < 0) return null;
+
+  const name = parts[0].substring(0, eqIndex).trim();
+  const value = parts[0].substring(eqIndex + 1);
+  const options: Record<string, unknown> = {};
+
+  for (let i = 1; i < parts.length; i++) {
+    const attr = parts[i];
+    const attrEqIndex = attr.indexOf('=');
+    const key = (attrEqIndex < 0 ? attr : attr.substring(0, attrEqIndex)).trim().toLowerCase();
+    const val = attrEqIndex < 0 ? '' : attr.substring(attrEqIndex + 1).trim();
+
+    switch (key) {
+      case 'domain': options.domain = val; break;
+      case 'path': options.path = val; break;
+      case 'max-age': options.maxAge = parseInt(val, 10); break;
+      case 'expires': options.expires = new Date(val); break;
+      case 'httponly': options.httpOnly = true; break;
+      case 'secure': options.secure = true; break;
+      case 'samesite': options.sameSite = val.toLowerCase() as 'lax' | 'strict' | 'none'; break;
+    }
+  }
+
+  return { name, value, options };
+}
+
+/**
  * Proxy auth requests to the BFF.
  *
- * For redirects (302): extracts Set-Cookie headers and sets them on the
- * response redirect, ensuring cookies survive the proxy layer.
+ * For redirects (302): extracts Set-Cookie headers and sets them using
+ * NextResponse.cookies.set() to ensure cookies survive the proxy layer.
  * For other responses: forwards headers, status, and body as-is.
  */
 async function proxyToBff(request: NextRequest, path: string) {
@@ -48,9 +83,7 @@ async function proxyToBff(request: NextRequest, path: string) {
     // Collect Set-Cookie headers using getSetCookie() to avoid header merging issues
     const setCookies = response.headers.getSetCookie?.() || [];
 
-    console.log(`[Auth Proxy] ${path} → ${response.status}, setCookies: ${setCookies.length}`, setCookies);
-
-    // Handle redirects: build a manual 302 response with cookies
+    // Handle redirects
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
       if (location) {
@@ -62,22 +95,16 @@ async function proxyToBff(request: NextRequest, path: string) {
           ? location
           : new URL(location, externalOrigin).toString();
 
-        console.log(`[Auth Proxy] Redirect: ${location} → ${redirectUrl}`);
+        const redirectResponse = NextResponse.redirect(redirectUrl, response.status);
 
-        // Use manual Response instead of NextResponse.redirect() to ensure Set-Cookie headers are preserved
-        const redirectResponse = new NextResponse(null, {
-          status: response.status,
-          headers: {
-            Location: redirectUrl,
-          },
-        });
-
-        // Attach all Set-Cookie headers from auth-bff
-        for (const cookie of setCookies) {
-          redirectResponse.headers.append('set-cookie', cookie);
+        // Use NextResponse.cookies.set() API for reliable cookie setting
+        for (const raw of setCookies) {
+          const parsed = parseSetCookie(raw);
+          if (parsed) {
+            redirectResponse.cookies.set(parsed.name, parsed.value, parsed.options);
+            console.log(`[Auth Proxy] Set cookie via API: ${parsed.name}, domain=${parsed.options.domain}, path=${parsed.options.path}`);
+          }
         }
-
-        console.log('[Auth Proxy] Response Set-Cookie headers:', redirectResponse.headers.getSetCookie?.());
 
         return redirectResponse;
       }
