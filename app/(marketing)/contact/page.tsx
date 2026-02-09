@@ -184,9 +184,9 @@ export default function ContactPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="mark8ly">Mark8ly</SelectItem>
-                          <SelectItem value="analytics-pro">Analytics Pro</SelectItem>
-                          <SelectItem value="payflow">PayFlow</SelectItem>
-                          <SelectItem value="securevault">SecureVault</SelectItem>
+                          <SelectItem value="homechef">HomeChef</SelectItem>
+                          <SelectItem value="medicare">MediCare</SelectItem>
+                          <SelectItem value="fanzone">FanZone</SelectItem>
                           <SelectItem value="other">Other / General inquiry</SelectItem>
                         </SelectContent>
                       </Select>

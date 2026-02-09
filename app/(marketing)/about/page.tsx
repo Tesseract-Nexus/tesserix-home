@@ -107,7 +107,7 @@ export default function AboutPage() {
           <StaggerContainer className="mx-auto mt-16 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2">
             {values.map((value) => (
               <StaggerItem key={value.title}>
-                <div className="rounded-lg border p-6 card-hover-scale">
+                <div className="rounded-lg border p-6">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg border">
                     <value.icon className="h-5 w-5" />
                   </div>

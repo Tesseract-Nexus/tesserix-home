@@ -112,11 +112,6 @@ const softwareSchema = {
   },
   description:
     "Multi-tenant marketplace platform enabling businesses to launch and scale their own branded online stores.",
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.8",
-    reviewCount: "127",
-  },
 };
 
 export default function RootLayout({

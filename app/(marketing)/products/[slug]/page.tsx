@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb } from "@/components/common/breadcrumb";
-import { AnimateOnScroll, StaggerContainer, StaggerItem } from "@/components/ui/animate-on-scroll";
+import { AnimateOnScroll } from "@/components/ui/animate-on-scroll";
 
 // Product data
 const products: Record<
@@ -129,7 +129,7 @@ const products: Record<
     longDescription:
       "HomeChef is a complete platform that connects talented home cooks with hungry customers in their community. From chef onboarding and menu management to order tracking and delivery coordination, HomeChef provides everything you need to run a successful home food delivery business.",
     icon: ChefHat,
-    status: "available",
+    status: "coming-soon",
     github: "https://github.com/Tesseract-Nexus/Home-Chef-App",
     features: [
       {
@@ -191,7 +191,7 @@ const products: Record<
     longDescription:
       "MediCare is a comprehensive hospital management system designed to streamline healthcare operations. From patient registration and electronic health records to appointment scheduling, billing, and inventory management, MediCare digitizes every aspect of hospital administration.",
     icon: Hospital,
-    status: "available",
+    status: "coming-soon",
     github: "https://github.com/Tesseract-Nexus/hospital-management",
     features: [
       {
@@ -253,7 +253,7 @@ const products: Record<
     longDescription:
       "FanZone brings cricket fans together with real-time match updates, ball-by-ball commentary, match predictions, and a vibrant community for discussions and banter. Whether you're following IPL, international matches, or local leagues, FanZone keeps you connected to the game you love.",
     icon: Trophy,
-    status: "available",
+    status: "coming-soon",
     github: "https://github.com/Tesseract-Nexus/FanZone-Battle-Ground",
     features: [
       {
@@ -341,8 +341,6 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
-  const Icon = product.icon;
-
   return (
     <div>
       {/* Hero */}
@@ -357,14 +355,14 @@ export default async function ProductPage({ params }: PageProps) {
           />
 
           <AnimateOnScroll variant="fade-up" className="mx-auto max-w-3xl text-center">
-            <div className="flex justify-center">
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-xl bg-muted border gradient-mesh">
-                <Icon className="h-8 w-8 text-foreground relative z-10" />
-              </div>
-            </div>
-            <h1 className="mt-6 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+            <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
               {product.title}
             </h1>
+            {product.status === "coming-soon" && (
+              <span className="mt-3 inline-block rounded-full border border-foreground/20 px-3 py-1 text-xs font-medium text-muted-foreground">
+                Coming Soon
+              </span>
+            )}
             <p className="mt-2 text-xl text-muted-foreground">{product.tagline}</p>
             <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
               {product.longDescription}
@@ -372,15 +370,31 @@ export default async function ProductPage({ params }: PageProps) {
 
             {/* Single Primary CTA */}
             <div className="mt-10">
-              <Button size="lg" asChild className="btn-shimmer">
-                <Link href="/contact">
-                  Start free trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <p className="mt-3 text-sm text-muted-foreground">
-                No credit card required · 14-day free trial
-              </p>
+              {product.status === "coming-soon" ? (
+                <>
+                  <Button size="lg" asChild>
+                    <Link href="/contact">
+                      Get notified when we launch
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                  </Button>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    We&apos;ll let you know when {product.title} is ready.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Button size="lg" asChild className="btn-shimmer">
+                    <Link href="/contact">
+                      Start free trial
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                  </Button>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    No credit card required · 14-day free trial
+                  </p>
+                </>
+              )}
             </div>
 
             {/* External links */}
@@ -424,23 +438,21 @@ export default async function ProductPage({ params }: PageProps) {
             </p>
           </AnimateOnScroll>
 
-          <StaggerContainer className="mx-auto mt-16 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <AnimateOnScroll variant="fade-up" className="mx-auto mt-16 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {product.features.map((feature) => (
-              <StaggerItem key={feature.title}>
-                <div className="rounded-lg border bg-card p-6 card-hover-scale transition-colors hover:border-foreground/10">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                    <feature.icon className="h-5 w-5 text-foreground" />
-                  </div>
-                  <h3 className="mt-4 text-lg font-semibold text-foreground">
-                    {feature.title}
-                  </h3>
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                    {feature.description}
-                  </p>
+              <div key={feature.title} className="rounded-lg border bg-card p-6 transition-colors hover:border-foreground/10">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <feature.icon className="h-5 w-5 text-foreground" />
                 </div>
-              </StaggerItem>
+                <h3 className="mt-4 text-lg font-semibold text-foreground">
+                  {feature.title}
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                  {feature.description}
+                </p>
+              </div>
             ))}
-          </StaggerContainer>
+          </AnimateOnScroll>
         </div>
       </section>
 
@@ -448,7 +460,7 @@ export default async function ProductPage({ params }: PageProps) {
       <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto grid max-w-5xl grid-cols-1 gap-16 lg:grid-cols-2 lg:items-center">
-            <AnimateOnScroll variant="slide-left">
+            <AnimateOnScroll variant="fade-up">
               <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                 Why Choose {product.title}?
               </h2>
@@ -466,7 +478,7 @@ export default async function ProductPage({ params }: PageProps) {
             </AnimateOnScroll>
 
             {/* Pricing Preview */}
-            <AnimateOnScroll variant="slide-right">
+            <AnimateOnScroll variant="fade-up" delay={0.1}>
               <div className="rounded-lg border bg-card p-8 shadow-sm">
                 <h3 className="text-xl font-semibold text-foreground">Pricing Plans</h3>
                 <p className="mt-2 text-muted-foreground">
@@ -515,27 +527,30 @@ export default async function ProductPage({ params }: PageProps) {
       {/* CTA */}
       <section className="py-12 sm:py-16 bg-primary">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <AnimateOnScroll variant="fade-up" className="mx-auto max-w-2xl text-center">
+          <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-semibold tracking-tight text-primary-foreground sm:text-4xl">
-              Ready to get started with {product.title}?
+              {product.status === "coming-soon"
+                ? `Interested in ${product.title}?`
+                : `Ready to try ${product.title}?`}
             </h2>
             <p className="mt-4 text-lg text-primary-foreground/80">
-              Join businesses already using our platform.
+              {product.status === "coming-soon"
+                ? "Leave your email and we'll reach out when it's ready."
+                : "Get started with a free trial — no credit card required."}
             </p>
             <div className="mt-10">
               <Button
                 size="lg"
                 variant="secondary"
                 asChild
-                className="bg-white text-primary hover:bg-white/90 btn-shimmer"
+                className="bg-white text-primary hover:bg-white/90"
               >
-                <Link href="/contact">Start your free trial</Link>
+                <Link href="/contact">
+                  {product.status === "coming-soon" ? "Get in touch" : "Start your free trial"}
+                </Link>
               </Button>
-              <p className="mt-3 text-sm text-primary-foreground/70">
-                No credit card required · Cancel anytime
-              </p>
             </div>
-          </AnimateOnScroll>
+          </div>
         </div>
       </section>
     </div>

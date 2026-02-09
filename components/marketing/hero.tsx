@@ -10,7 +10,7 @@ const products = [
   {
     title: "Mark8ly",
     tagline: "Your online store, ready this afternoon",
-    description: "Launch your store in under an hour — no developer needed. Rated 4.9/5 from 150+ reviews.",
+    description: "Launch your store in under an hour — no developer needed.",
     icon: ShoppingBag,
     href: "/products/mark8ly",
     featured: true,
@@ -23,7 +23,8 @@ const products = [
     description: "Connect home chefs with food lovers. Chef onboarding, menu management, real-time order tracking, and delivery coordination.",
     icon: ChefHat,
     href: "/products/homechef",
-    highlights: ["Chef verification", "Live tracking", "Reviews"],
+    highlights: ["Chef verification", "Live tracking", "Delivery"],
+    comingSoon: true,
   },
   {
     title: "MediCare",
@@ -32,6 +33,7 @@ const products = [
     icon: Hospital,
     href: "/products/medicare",
     highlights: ["EHR", "Scheduling", "Billing"],
+    comingSoon: true,
   },
   {
     title: "FanZone",
@@ -40,6 +42,7 @@ const products = [
     icon: Trophy,
     href: "/products/fanzone",
     highlights: ["Live scores", "Predictions", "Community"],
+    comingSoon: true,
   },
 ];
 
@@ -94,21 +97,8 @@ export function Hero() {
               Build what&apos;s next
             </h1>
             <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-              End-to-end software platforms for marketplaces, healthcare, food delivery, and sports &mdash; launch in days, scale without limits.
+              We build the software so you can focus on the business.
             </p>
-            <div className="mt-6 flex items-center justify-center gap-6 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="font-semibold text-foreground">500+</span> businesses
-              </span>
-              <span className="h-3 w-px bg-border" />
-              <span className="flex items-center gap-1.5">
-                <span className="font-semibold text-foreground">99.9%</span> uptime
-              </span>
-              <span className="h-3 w-px bg-border" />
-              <span className="flex items-center gap-1.5">
-                <span className="font-semibold text-foreground">15+</span> countries
-              </span>
-            </div>
           </motion.div>
 
           {/* Bento Grid */}
@@ -161,7 +151,7 @@ export function Hero() {
                       </div>
                     )}
 
-                    {/* Mini stats */}
+                    {/* Key selling points */}
                     <div className="mt-5 flex items-center gap-5 text-sm flex-wrap">
                       <div>
                         <span className="font-semibold text-foreground">12 months</span>
@@ -169,18 +159,13 @@ export function Hero() {
                       </div>
                       <span className="h-3 w-px bg-border" />
                       <div>
-                        <span className="font-semibold text-foreground">4.9/5</span>
-                        <span className="text-muted-foreground"> rating</span>
+                        <span className="font-semibold text-foreground">0%</span>
+                        <span className="text-muted-foreground"> platform fees</span>
                       </div>
                       <span className="h-3 w-px bg-border" />
                       <div>
-                        <span className="font-semibold text-foreground">150+</span>
-                        <span className="text-muted-foreground"> reviews</span>
-                      </div>
-                      <span className="h-3 w-px bg-border hidden sm:block" />
-                      <div className="hidden sm:block">
-                        <span className="font-semibold text-foreground">0%</span>
-                        <span className="text-muted-foreground"> platform fees</span>
+                        <span className="font-semibold text-foreground">₹499</span>
+                        <span className="text-muted-foreground">/mo after</span>
                       </div>
                     </div>
 
@@ -213,9 +198,18 @@ export function Hero() {
                 <Link
                   key={product.title}
                   href={product.href}
-                  className="group relative rounded-2xl border bg-card p-6 card-hover-lift card-glow-border flex flex-col"
+                  className="group relative rounded-2xl border bg-card p-6 card-hover-lift flex flex-col overflow-hidden"
                 >
-                  <div className="flex items-center gap-3">
+                  {/* Coming Soon watermark */}
+                  {product.comingSoon && (
+                    <div className="pointer-events-none absolute top-3 -right-6 rotate-[30deg] select-none">
+                      <span className="inline-block bg-foreground/[0.07] px-10 py-1 text-[10px] font-bold tracking-widest text-foreground/40 uppercase">
+                        Coming Soon
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="relative flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted transition-colors group-hover:bg-foreground/5">
                       <product.icon className="h-5 w-5 text-foreground" />
                     </div>
@@ -225,12 +219,12 @@ export function Hero() {
                     </div>
                   </div>
 
-                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed flex-1">
+                  <p className="relative mt-3 text-sm text-muted-foreground leading-relaxed flex-1">
                     {product.description}
                   </p>
 
                   {product.highlights && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
+                    <div className="relative mt-3 flex flex-wrap gap-1.5">
                       {product.highlights.map((h) => (
                         <span key={h} className="inline-flex items-center rounded-md border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                           {h}
@@ -239,7 +233,7 @@ export function Hero() {
                     </div>
                   )}
 
-                  <div className="mt-4 flex items-center text-sm font-medium text-foreground">
+                  <div className="relative mt-4 flex items-center text-sm font-medium text-foreground">
                     Learn more
                     <ArrowRight className="ml-1 h-3 w-3 transition-transform group-hover:translate-x-1" />
                   </div>
