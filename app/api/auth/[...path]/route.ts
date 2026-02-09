@@ -20,6 +20,7 @@ async function proxyToBff(request: NextRequest, path: string) {
     method: request.method,
     headers,
     credentials: 'include',
+    redirect: 'manual',
   };
 
   if (request.method !== 'GET' && request.method !== 'HEAD') {
