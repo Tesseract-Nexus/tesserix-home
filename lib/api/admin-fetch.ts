@@ -6,9 +6,13 @@ const TICKETS_SERVICE_URL = process.env.TICKETS_SERVICE_URL || 'http://localhost
 const AUTH_BFF_URL = process.env.AUTH_BFF_URL || 'http://localhost:8082';
 const MARKETPLACE_SETTINGS_SERVICE_URL = process.env.MARKETPLACE_SETTINGS_SERVICE_URL || 'http://localhost:8085/api/v1';
 const SUBSCRIPTION_SERVICE_URL = process.env.SUBSCRIPTION_SERVICE_URL || 'http://localhost:8093';
+const AUDIT_SERVICE_URL = process.env.AUDIT_SERVICE_URL || 'http://localhost:8080/api/v1';
+const STATUS_DASHBOARD_SERVICE_URL = process.env.STATUS_DASHBOARD_SERVICE_URL || 'http://localhost:8097/api/v1';
+const FEATURE_FLAGS_SERVICE_URL = process.env.FEATURE_FLAGS_SERVICE_URL || 'http://localhost:8096/api/v1';
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:8090/api/v1';
 const INTERNAL_SERVICE_KEY = process.env.INTERNAL_SERVICE_KEY || '';
 
-export type ServiceName = 'tenant' | 'tickets' | 'auth' | 'settings' | 'subscription';
+export type ServiceName = 'tenant' | 'tickets' | 'auth' | 'settings' | 'subscription' | 'audit' | 'status-dashboard' | 'feature-flags' | 'notification';
 
 function getServiceBaseUrl(service: ServiceName): string {
   switch (service) {
@@ -22,6 +26,14 @@ function getServiceBaseUrl(service: ServiceName): string {
       return MARKETPLACE_SETTINGS_SERVICE_URL;
     case 'subscription':
       return SUBSCRIPTION_SERVICE_URL;
+    case 'audit':
+      return AUDIT_SERVICE_URL;
+    case 'status-dashboard':
+      return STATUS_DASHBOARD_SERVICE_URL;
+    case 'feature-flags':
+      return FEATURE_FLAGS_SERVICE_URL;
+    case 'notification':
+      return NOTIFICATION_SERVICE_URL;
   }
 }
 

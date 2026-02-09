@@ -9,6 +9,10 @@ import {
   Ticket,
   FileText,
   CreditCard,
+  ScrollText,
+  Activity,
+  ToggleLeft,
+  Mail,
   Settings,
   LogOut,
   Menu,
@@ -27,6 +31,10 @@ const navigation = [
   { name: "Tickets", href: "/tickets", icon: Ticket },
   { name: "Content", href: "/content", icon: FileText },
   { name: "Billing", href: "/billing", icon: CreditCard },
+  { name: "Audit Logs", href: "/audit-logs", icon: ScrollText },
+  { name: "System Health", href: "/system-health", icon: Activity },
+  { name: "Feature Flags", href: "/feature-flags", icon: ToggleLeft },
+  { name: "Email Templates", href: "/email-templates", icon: Mail },
 ];
 
 const secondaryNavigation = [
