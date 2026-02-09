@@ -197,12 +197,41 @@ Replace hardcoded stats and recent items with real API data.
 
 ---
 
-## Phase 2: Content Management (Future)
+## Phase 2: Content Management — COMPLETED
 
-- Migrate Mark8ly internal content editor from port-forward setup
-- CMS pages for managing Mark8ly storefront content
-- Theme/template management
-- Media/asset management
+**Status:** All steps completed. Platform admins can now manage content pages (About, FAQ, Privacy Policy, Blog, etc.) for any tenant's storefront via the admin portal.
+
+**Architecture:** Content pages are stored in `settings-service` as JSONB in `storefront_theme_settings.ecommerce.contentPages`. The admin portal proxies to the marketplace settings-service via `MARKETPLACE_SETTINGS_SERVICE_URL`. PATCH requests only send `contentPages`, preserving theme/style settings.
+
+### What Was Built
+
+**Infrastructure:**
+- Added `MARKETPLACE_SETTINGS_SERVICE_URL` to `admin-fetch.ts` (service type: `'settings'`)
+- Added `/content` to middleware `ADMIN_PATHS` for auth protection
+- Added K8s env var: `MARKETPLACE_SETTINGS_SERVICE_URL=http://settings-service.marketplace.svc.cluster.local:8085/api/v1`
+
+**API Layer:**
+- `app/api/content/route.ts` — GET/PATCH proxy to settings-service `/storefront-theme/{tenantId}`
+- `lib/api/content.ts` — Types (`ContentPage`, `ContentPageType`, `ContentPageStatus`), hooks (`useContentPages`, `saveContentPages`), helpers (`createPage`, `updatePage`, `deletePage`, `publishPage`, `unpublishPage`, `archivePage`, `generateSlug`)
+
+**UI Components:**
+- `components/admin/tenant-selector.tsx` — Reusable tenant dropdown (used by content pages, reusable for future cross-tenant features)
+- `components/ui/rich-text-editor.tsx` — TipTap editor with full toolbar (bold, italic, underline, strike, highlight, headings, lists, blockquote, code, alignment, links, images), character count footer
+
+**Pages:**
+- `app/(admin)/content/page.tsx` — Content pages list with tenant selector, search, type/status filters, table with inline actions (edit, publish, unpublish, archive, delete)
+- `app/(admin)/content/[id]/page.tsx` — Two-column editor: left (title, slug, rich text, excerpt), right (status + actions, page type, display options, SEO fields, stats)
+- Sidebar updated with "Content" nav item
+
+**TipTap Dependencies Added:**
+- `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-placeholder`, `@tiptap/extension-text-align`, `@tiptap/extension-underline`, `@tiptap/extension-highlight`, `@tiptap/pm`
+
+### Deferred
+- Image upload (URL-based only for now)
+- Theme/style editor (separate feature)
+- Content version history
+- Storefront live preview
+- AI content generation
 
 ## Phase 3: Subscription & Billing (Future)
 
@@ -276,6 +305,7 @@ Platform Admin views /tickets:
 | `TENANT_SERVICE_URL` | K8s env / ArgoCD | Backend tenant service URL |
 | `TICKETS_SERVICE_URL` | K8s env / ArgoCD | Backend tickets service URL |
 | `AUTH_BFF_URL` | K8s env / ArgoCD | Auth BFF for session validation |
+| `MARKETPLACE_SETTINGS_SERVICE_URL` | K8s env / ArgoCD | Marketplace settings service for content management |
 | `INTERNAL_SERVICE_KEY` | GCP Secret Manager → ExternalSecret | Auth key for auth-bff /internal/get-token |
 | `NEXT_PUBLIC_DEV_AUTH_BYPASS` | Local .env only | Dev mode skip auth |
 | `NEXT_PUBLIC_BASE_DOMAIN` | K8s env / ArgoCD | Base domain for tenant URLs |

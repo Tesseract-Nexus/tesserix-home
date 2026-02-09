@@ -4,9 +4,10 @@ import { NextResponse } from 'next/server';
 const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://localhost:8080';
 const TICKETS_SERVICE_URL = process.env.TICKETS_SERVICE_URL || 'http://localhost:8081/api/v1';
 const AUTH_BFF_URL = process.env.AUTH_BFF_URL || 'http://localhost:8082';
+const MARKETPLACE_SETTINGS_SERVICE_URL = process.env.MARKETPLACE_SETTINGS_SERVICE_URL || 'http://localhost:8085/api/v1';
 const INTERNAL_SERVICE_KEY = process.env.INTERNAL_SERVICE_KEY || '';
 
-export type ServiceName = 'tenant' | 'tickets' | 'auth';
+export type ServiceName = 'tenant' | 'tickets' | 'auth' | 'settings';
 
 function getServiceBaseUrl(service: ServiceName): string {
   switch (service) {
@@ -16,6 +17,8 @@ function getServiceBaseUrl(service: ServiceName): string {
       return TICKETS_SERVICE_URL;
     case 'auth':
       return AUTH_BFF_URL;
+    case 'settings':
+      return MARKETPLACE_SETTINGS_SERVICE_URL;
   }
 }
 

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Users,
   Ticket,
+  FileText,
   Settings,
   LogOut,
   Menu,
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Tenants", href: "/tenants", icon: Users },
   { name: "Tickets", href: "/tickets", icon: Ticket },
+  { name: "Content", href: "/content", icon: FileText },
 ];
 
 const secondaryNavigation = [
