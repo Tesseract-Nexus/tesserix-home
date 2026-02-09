@@ -95,22 +95,32 @@ async function proxyToBff(request: NextRequest, path: string) {
           ? location
           : new URL(location, externalOrigin).toString();
 
-        // If there are cookies to set (e.g., callback response), use a 200 HTML redirect
-        // to guarantee the browser processes Set-Cookie before navigating.
-        // 302 redirects + Set-Cookie can be unreliable across proxies and CDNs.
+        // If there are cookies to set (e.g., callback response), use a debug page
+        // to verify cookies are being set before redirecting.
         if (setCookies.length > 0) {
-          const html = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${redirectUrl}"><script>window.location.href=${JSON.stringify(redirectUrl)}</script></head><body>Redirecting...</body></html>`;
+          const cookieInfo = setCookies.map(c => c.substring(0, 200)).join('\n');
+          const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
+<h2>Auth Debug - Cookies being set:</h2>
+<pre>${cookieInfo}</pre>
+<p>Check DevTools &gt; Application &gt; Cookies for <code>bff_home_session</code></p>
+<p><a href="${redirectUrl}">Click here to continue to dashboard</a></p>
+<p><small>Will auto-redirect in 5 seconds...</small></p>
+<script>setTimeout(function(){window.location.href=${JSON.stringify(redirectUrl)}},5000)</script>
+</body></html>`;
           const htmlResponse = new NextResponse(html, {
             status: 200,
             headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
           });
+          // Set both the auth cookie AND a test cookie to diagnose which attributes cause rejection
           for (const raw of setCookies) {
             const parsed = parseSetCookie(raw);
             if (parsed) {
               htmlResponse.cookies.set(parsed.name, parsed.value, parsed.options);
-              console.log(`[Auth Proxy] Set cookie via HTML redirect: ${parsed.name}, domain=${parsed.options.domain}, path=${parsed.options.path}`);
+              console.log(`[Auth Proxy] Set auth cookie: ${parsed.name}, domain=${parsed.options.domain}, secure=${parsed.options.secure}, httpOnly=${parsed.options.httpOnly}, sameSite=${parsed.options.sameSite}`);
             }
           }
+          // Simple test cookie — no domain, no secure, no httponly
+          htmlResponse.cookies.set('_test_cookie', 'works', { path: '/', maxAge: 300 });
           return htmlResponse;
         }
 
