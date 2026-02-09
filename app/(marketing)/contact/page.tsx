@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AnimateOnScroll } from "@/components/ui/animate-on-scroll";
 
 const contactInfo = [
   {
@@ -85,9 +86,9 @@ export default function ContactPage() {
   return (
     <div>
       {/* Hero */}
-      <section className="py-16 sm:py-24">
+      <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
+          <AnimateOnScroll variant="fade-up" className="mx-auto max-w-2xl text-center">
             <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
               Get in Touch
             </h1>
@@ -95,15 +96,16 @@ export default function ContactPage() {
               Have questions about our products? Want to schedule a demo?
               Our team is here to help.
             </p>
-          </div>
+          </AnimateOnScroll>
         </div>
       </section>
 
       {/* Contact Form & Info */}
-      <section className="pb-16 sm:pb-24">
+      <section className="pb-12 sm:pb-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto grid max-w-5xl grid-cols-1 gap-12 lg:gap-16 lg:grid-cols-2">
             {/* Form */}
+            <AnimateOnScroll variant="slide-left">
             <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle>Send us a message</CardTitle>
@@ -219,8 +221,10 @@ export default function ContactPage() {
                 )}
               </CardContent>
             </Card>
+            </AnimateOnScroll>
 
             {/* Contact Info */}
+            <AnimateOnScroll variant="slide-right">
             <div className="space-y-8">
               <div>
                 <h2 className="text-2xl font-semibold text-foreground">Contact Information</h2>
@@ -262,6 +266,7 @@ export default function ContactPage() {
                 </Button>
               </div>
             </div>
+            </AnimateOnScroll>
           </div>
         </div>
       </section>

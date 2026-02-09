@@ -25,33 +25,9 @@ const footerNavigation = {
   ],
 };
 
-const stats = [
-  { value: "500+", label: "Active businesses" },
-  { value: "15+", label: "Countries" },
-  { value: "99.9%", label: "Uptime" },
-  { value: "10M+", label: "Transactions" },
-];
-
 export function Footer() {
   return (
     <footer className="border-t bg-muted/30" role="contentinfo">
-      {/* Social Proof Stats */}
-      <div className="border-b">
-        <div className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
-          <p className="text-center text-sm font-medium text-muted-foreground mb-6">
-            Trusted by businesses worldwide
-          </p>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-8">
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <p className="text-2xl font-semibold text-foreground">{stat.value}</p>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           {/* Brand */}

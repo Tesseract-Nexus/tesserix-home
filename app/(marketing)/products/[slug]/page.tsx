@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb } from "@/components/common/breadcrumb";
+import { AnimateOnScroll, StaggerContainer, StaggerItem } from "@/components/ui/animate-on-scroll";
 
 // Product data
 const products: Record<
@@ -55,66 +56,68 @@ const products: Record<
       enterprise: string;
     };
     github?: string;
+    website?: string;
   }
 > = {
   mark8ly: {
     title: "Mark8ly",
-    tagline: "Multi-tenant Marketplace Platform",
+    tagline: "The simplest way to create and launch your online store",
     description:
-      "Launch and scale your own branded marketplace with powerful tools and enterprise-grade infrastructure.",
+      "Your online store, ready this afternoon. No developer needed.",
+    website: "https://mark8ly.com",
     longDescription:
-      "Mark8ly is a comprehensive multi-tenant marketplace platform that enables businesses to create, manage, and scale their own branded online marketplaces. Whether you're building a B2B wholesale platform, a consumer marketplace, or a specialized niche store, Mark8ly provides all the tools you need.",
+      "Set up your store in under an hour — no developer needed. Skip the expensive customization costs and do it yourself. Beautiful themes you can customize to match your brand, integrated payments, built-in SEO tools, and real human support. Built for creators, makers, and small businesses who want to focus on selling, not software.",
     icon: ShoppingBag,
     status: "available",
     features: [
       {
-        icon: Users,
-        title: "Multi-Vendor Management",
-        description:
-          "Onboard and manage multiple vendors with role-based permissions, automated payouts, and performance tracking.",
-      },
-      {
         icon: Palette,
-        title: "Customizable Storefronts",
+        title: "Make It Yours",
         description:
-          "Create beautiful, branded storefronts with our drag-and-drop builder. No coding required.",
+          "Beautiful themes you can customize to match your brand. No design skills needed. Your store looks great on every device.",
       },
       {
         icon: CreditCard,
-        title: "Integrated Payments",
+        title: "Sell Everywhere",
         description:
-          "Accept payments via multiple gateways with automated split payments and vendor settlements.",
-      },
-      {
-        icon: Package,
-        title: "Inventory Management",
-        description:
-          "Track inventory across multiple warehouses with real-time stock updates and low-stock alerts.",
+          "Accept cards, UPI, and wallets. No platform transaction fees — your money is your money.",
       },
       {
         icon: BarChart,
-        title: "Analytics & Reporting",
+        title: "Know Your Numbers",
         description:
-          "Gain insights with comprehensive dashboards, sales reports, and customer analytics.",
+          "Simple analytics that help you understand what's working and what's not. Track revenue, orders, and visitors.",
+      },
+      {
+        icon: Package,
+        title: "Unlimited Products",
+        description:
+          "Add as many products as you want with unlimited photos. Organize your catalog with categories and collections.",
       },
       {
         icon: Shield,
-        title: "Enterprise Security",
+        title: "SSL Secured & 99.9% Uptime",
         description:
-          "SOC 2 compliant infrastructure with data encryption, audit logs, and role-based access control.",
+          "Enterprise-grade security with SSL encryption on every store. Your customers' data is always protected.",
+      },
+      {
+        icon: Users,
+        title: "Real Human Support",
+        description:
+          "No chatbots, just friendly support ready to help when you need it. Average response time under 4 hours.",
       },
     ],
     benefits: [
-      "Launch your marketplace in days, not months",
-      "No upfront infrastructure costs",
-      "Automatic scaling as you grow",
-      "24/7 technical support",
-      "Regular feature updates",
-      "99.9% uptime SLA",
+      "12 months free, then just ₹499/month",
+      "No transaction fees from platform",
+      "No developer needed — set up yourself",
+      "Custom domain support",
+      "Shopify migration support",
+      "Cancel anytime, export all your data",
     ],
     pricing: {
-      starter: "$99/month",
-      professional: "$299/month",
+      starter: "Free for 12 months",
+      professional: "₹499/month",
       enterprise: "Custom",
     },
   },
@@ -343,7 +346,7 @@ export default async function ProductPage({ params }: PageProps) {
   return (
     <div>
       {/* Hero */}
-      <section className="py-16 sm:py-24">
+      <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           {/* Breadcrumb */}
           <Breadcrumb
@@ -353,10 +356,10 @@ export default async function ProductPage({ params }: PageProps) {
             ]}
           />
 
-          <div className="mx-auto max-w-3xl text-center">
+          <AnimateOnScroll variant="fade-up" className="mx-auto max-w-3xl text-center">
             <div className="flex justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-muted border">
-                <Icon className="h-8 w-8 text-foreground" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-xl bg-muted border gradient-mesh">
+                <Icon className="h-8 w-8 text-foreground relative z-10" />
               </div>
             </div>
             <h1 className="mt-6 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
@@ -369,7 +372,7 @@ export default async function ProductPage({ params }: PageProps) {
 
             {/* Single Primary CTA */}
             <div className="mt-10">
-              <Button size="lg" asChild>
+              <Button size="lg" asChild className="btn-shimmer">
                 <Link href="/contact">
                   Start free trial
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -380,58 +383,72 @@ export default async function ProductPage({ params }: PageProps) {
               </p>
             </div>
 
-            {/* GitHub link if available */}
-            {product.github && (
-              <div className="mt-4">
-                <a
-                  href={product.github}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  View on GitHub →
-                </a>
+            {/* External links */}
+            {(product.website || product.github) && (
+              <div className="mt-4 flex items-center justify-center gap-4">
+                {product.website && (
+                  <a
+                    href={product.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Visit {product.website.replace("https://", "")} →
+                  </a>
+                )}
+                {product.github && (
+                  <a
+                    href={product.github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    View on GitHub →
+                  </a>
+                )}
               </div>
             )}
-          </div>
+          </AnimateOnScroll>
         </div>
       </section>
 
       {/* Features */}
-      <section className="py-16 sm:py-24 bg-muted/30">
+      <section className="py-12 sm:py-16 bg-muted/30">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
+          <AnimateOnScroll variant="fade-up" className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               Powerful Features
             </h2>
             <p className="mt-4 text-lg text-muted-foreground">
               Everything you need to succeed with {product.title}.
             </p>
-          </div>
+          </AnimateOnScroll>
 
-          <div className="mx-auto mt-16 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <StaggerContainer className="mx-auto mt-16 grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {product.features.map((feature) => (
-              <div key={feature.title} className="rounded-lg border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <feature.icon className="h-5 w-5 text-foreground" />
+              <StaggerItem key={feature.title}>
+                <div className="rounded-lg border bg-card p-6 card-hover-scale transition-colors hover:border-foreground/10">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                    <feature.icon className="h-5 w-5 text-foreground" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold text-foreground">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                    {feature.description}
+                  </p>
                 </div>
-                <h3 className="mt-4 text-lg font-semibold text-foreground">
-                  {feature.title}
-                </h3>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                  {feature.description}
-                </p>
-              </div>
+              </StaggerItem>
             ))}
-          </div>
+          </StaggerContainer>
         </div>
       </section>
 
       {/* Benefits */}
-      <section className="py-16 sm:py-24">
+      <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto grid max-w-5xl grid-cols-1 gap-16 lg:grid-cols-2 lg:items-center">
-            <div>
+            <AnimateOnScroll variant="slide-left">
               <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                 Why Choose {product.title}?
               </h2>
@@ -446,57 +463,59 @@ export default async function ProductPage({ params }: PageProps) {
                   </li>
                 ))}
               </ul>
-            </div>
+            </AnimateOnScroll>
 
             {/* Pricing Preview */}
-            <div className="rounded-lg border bg-card p-8 shadow-sm">
-              <h3 className="text-xl font-semibold text-foreground">Pricing Plans</h3>
-              <p className="mt-2 text-muted-foreground">
-                Choose the plan that fits your needs.
-              </p>
+            <AnimateOnScroll variant="slide-right">
+              <div className="rounded-lg border bg-card p-8 shadow-sm">
+                <h3 className="text-xl font-semibold text-foreground">Pricing Plans</h3>
+                <p className="mt-2 text-muted-foreground">
+                  Choose the plan that fits your needs.
+                </p>
 
-              <div className="mt-8 space-y-4">
-                <div className="flex items-center justify-between py-3 border-b">
-                  <div>
-                    <p className="font-medium text-foreground">Starter</p>
-                    <p className="text-sm text-muted-foreground">For individuals & small teams</p>
+                <div className="mt-8 space-y-4">
+                  <div className="flex items-center justify-between py-3 border-b">
+                    <div>
+                      <p className="font-medium text-foreground">Starter</p>
+                      <p className="text-sm text-muted-foreground">For individuals & small teams</p>
+                    </div>
+                    <p className="text-lg font-semibold text-foreground">
+                      {product.pricing.starter}
+                    </p>
                   </div>
-                  <p className="text-lg font-semibold text-foreground">
-                    {product.pricing.starter}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between py-3 border-b">
-                  <div>
-                    <p className="font-medium text-foreground">Professional</p>
-                    <p className="text-sm text-muted-foreground">For growing businesses</p>
+                  <div className="flex items-center justify-between py-3 border-b">
+                    <div>
+                      <p className="font-medium text-foreground">Professional</p>
+                      <p className="text-sm text-muted-foreground">For growing businesses</p>
+                    </div>
+                    <p className="text-lg font-semibold text-foreground">
+                      {product.pricing.professional}
+                    </p>
                   </div>
-                  <p className="text-lg font-semibold text-foreground">
-                    {product.pricing.professional}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="font-medium text-foreground">Enterprise</p>
-                    <p className="text-sm text-muted-foreground">For large organizations</p>
+                  <div className="flex items-center justify-between py-3">
+                    <div>
+                      <p className="font-medium text-foreground">Enterprise</p>
+                      <p className="text-sm text-muted-foreground">For large organizations</p>
+                    </div>
+                    <p className="text-lg font-semibold text-foreground">
+                      {product.pricing.enterprise}
+                    </p>
                   </div>
-                  <p className="text-lg font-semibold text-foreground">
-                    {product.pricing.enterprise}
-                  </p>
                 </div>
+
+                <Button className="w-full mt-8" asChild>
+                  <Link href="/contact">Get started today</Link>
+                </Button>
               </div>
-
-              <Button className="w-full mt-8" asChild>
-                <Link href="/contact">Get started today</Link>
-              </Button>
-            </div>
+            </AnimateOnScroll>
           </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="py-16 sm:py-24 bg-primary">
+      <section className="py-12 sm:py-16 bg-primary">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
+          <AnimateOnScroll variant="fade-up" className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-semibold tracking-tight text-primary-foreground sm:text-4xl">
               Ready to get started with {product.title}?
             </h2>
@@ -508,7 +527,7 @@ export default async function ProductPage({ params }: PageProps) {
                 size="lg"
                 variant="secondary"
                 asChild
-                className="bg-white text-primary hover:bg-white/90"
+                className="bg-white text-primary hover:bg-white/90 btn-shimmer"
               >
                 <Link href="/contact">Start your free trial</Link>
               </Button>
@@ -516,7 +535,7 @@ export default async function ProductPage({ params }: PageProps) {
                 No credit card required · Cancel anytime
               </p>
             </div>
-          </div>
+          </AnimateOnScroll>
         </div>
       </section>
     </div>
