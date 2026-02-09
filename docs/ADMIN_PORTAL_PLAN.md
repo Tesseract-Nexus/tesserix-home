@@ -2,7 +2,7 @@
 
 ## Overview
 
-Tesserix Home (`tesserix.app`) serves dual purposes: the public marketing site and the internal admin portal for managing Mark8ly tenants, support tickets, and platform operations. The admin portal lives under the `(admin)` route group at `/dashboard`, `/tenants`, and `/tickets`.
+Tesserix Home (`tesserix.app`) serves dual purposes: the public marketing site and the internal admin portal for managing Mark8ly tenants, support tickets, and platform operations. The admin portal lives under `app/admin/` with all routes served at `/admin/*` (e.g., `/admin/dashboard`, `/admin/tenants`, `/admin/tickets`).
 
 ## Current State
 
@@ -347,6 +347,45 @@ Consolidated from deferred items across all completed phases.
 - [ ] Feature flag creation/deletion via UI (currently read-only + override)
 - [ ] Email template HTML preview pane (live render)
 - [ ] System health historical charts (uptime over time)
+
+### From Issue #1 — Admin Authentication ([GitHub #1](https://github.com/Tesseract-Nexus/tesserix-home/issues/1))
+- [x] Login page with email/password
+- [x] Integration with internal Keycloak IDP (tesserix-internal realm) via auth-bff
+- [x] Session management with secure httpOnly cookies (bff_session)
+- [ ] Role-based access (Super Admin, Support, Finance, Developer) — middleware + UI gating
+- [ ] MFA support (TOTP/Passkeys) — Keycloak config + auth-bff flow
+- [ ] Password reset flow
+- [ ] Activity audit log for admin actions (audit-service exists, needs frontend wiring per user)
+- [ ] Session expiry after inactivity (auth-bff supports refresh, no idle timeout yet)
+
+### From Issue #2 — Ticket Management ([GitHub #2](https://github.com/Tesseract-Nexus/tesserix-home/issues/2))
+- [x] Dashboard showing all incoming tickets from tenant admins
+- [x] Ticket list with filters (status, priority)
+- [ ] Ticket list filters: tenant, category, assignee
+- [x] Ticket detail view with conversation thread
+- [ ] Assign tickets to team members
+- [x] Status workflow: Open → In Progress → On Hold → Resolved → Closed → Escalated
+- [x] Priority levels: Low, Medium, High, Critical
+- [ ] Internal notes (not visible to tenant)
+- [ ] SLA tracking and overdue alerts
+- [ ] Feature request board with voting/prioritization
+- [ ] Bulk actions (assign, close, change priority)
+- [ ] Email notifications on ticket status changes (backend exists in notification-service, needs frontend wiring)
+
+### From Issue #3 — Stripe Payment Gateway ([GitHub #3](https://github.com/Tesseract-Nexus/tesserix-home/issues/3))
+- [ ] Stripe Connect setup for receiving subscription payments
+- [ ] Stripe webhook endpoint (`/api/webhooks/stripe`) with signature verification
+- [x] Subscription plan management (view/list plans)
+- [ ] Subscription plan management (create/edit plans from admin UI)
+- [x] Invoice history per tenant (tenant detail billing tab)
+- [ ] Invoice generation and management (automatic)
+- [x] Payment history (MRR on dashboard, invoices in tenant detail)
+- [ ] Revenue analytics (churn rate, growth, detailed MRR breakdown)
+- [x] Cancel/reactivate subscriptions from admin UI
+- [x] Stripe portal session link
+- [ ] Failed payment handling and retry logic
+- [ ] Refund processing from admin UI
+- [ ] Tax calculation integration
 
 ---
 
