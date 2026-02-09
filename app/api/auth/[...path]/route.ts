@@ -95,18 +95,27 @@ async function proxyToBff(request: NextRequest, path: string) {
           ? location
           : new URL(location, externalOrigin).toString();
 
-        const redirectResponse = NextResponse.redirect(redirectUrl, response.status);
-
-        // Use NextResponse.cookies.set() API for reliable cookie setting
-        for (const raw of setCookies) {
-          const parsed = parseSetCookie(raw);
-          if (parsed) {
-            redirectResponse.cookies.set(parsed.name, parsed.value, parsed.options);
-            console.log(`[Auth Proxy] Set cookie via API: ${parsed.name}, domain=${parsed.options.domain}, path=${parsed.options.path}`);
+        // If there are cookies to set (e.g., callback response), use a 200 HTML redirect
+        // to guarantee the browser processes Set-Cookie before navigating.
+        // 302 redirects + Set-Cookie can be unreliable across proxies and CDNs.
+        if (setCookies.length > 0) {
+          const html = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${redirectUrl}"><script>window.location.href=${JSON.stringify(redirectUrl)}</script></head><body>Redirecting...</body></html>`;
+          const htmlResponse = new NextResponse(html, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+          });
+          for (const raw of setCookies) {
+            const parsed = parseSetCookie(raw);
+            if (parsed) {
+              htmlResponse.cookies.set(parsed.name, parsed.value, parsed.options);
+              console.log(`[Auth Proxy] Set cookie via HTML redirect: ${parsed.name}, domain=${parsed.options.domain}, path=${parsed.options.path}`);
+            }
           }
+          return htmlResponse;
         }
 
-        return redirectResponse;
+        // No cookies — use standard 302 redirect
+        return NextResponse.redirect(redirectUrl, response.status);
       }
     }
 
