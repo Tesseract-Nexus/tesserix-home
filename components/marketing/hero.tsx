@@ -114,7 +114,7 @@ export function Hero() {
                 className="group relative lg:col-span-2 rounded-2xl border bg-card p-6 sm:p-8 card-hover-lift overflow-hidden"
               >
                 {/* Watermark logo */}
-                <div className="pointer-events-none absolute bottom-4 right-2 h-48 w-48 sm:h-56 sm:w-56 opacity-[0.08] transition-opacity duration-300 group-hover:opacity-[0.14]">
+                <div className="pointer-events-none absolute bottom-2 right-4 h-64 w-64 sm:h-72 sm:w-72 opacity-[0.08] transition-opacity duration-300 group-hover:opacity-[0.14]">
                   <Image
                     src="/mark8ly-logo.png"
                     alt=""
@@ -141,7 +141,7 @@ export function Hero() {
                     </div>
                   </div>
 
-                  <p className="mt-4 text-muted-foreground leading-relaxed max-w-lg">
+                  <p className="mt-4 text-muted-foreground leading-relaxed">
                     Launch your store in under an hour — no developer needed.
                     Beautiful themes, integrated payments, built-in SEO, and real human support.
                   </p>
