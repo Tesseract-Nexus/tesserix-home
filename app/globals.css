@@ -370,6 +370,54 @@
   }
 }
 
+/* =============================================================================
+   WOW FACTOR — Animated gradient text
+   ============================================================================= */
+@keyframes gradient-text-flow {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 200% center; }
+}
+
+.gradient-text {
+  background: linear-gradient(
+    90deg,
+    #111827 0%,
+    #4b5563 30%,
+    #111827 50%,
+    #6b7280 70%,
+    #111827 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-text-flow 5s ease infinite;
+}
+
+/* =============================================================================
+   WOW FACTOR — Cursor-following glow
+   ============================================================================= */
+.cursor-glow {
+  --glow-x: 50%;
+  --glow-y: 50%;
+  --glow-opacity: 0;
+  position: relative;
+}
+
+.cursor-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    600px circle at var(--glow-x) var(--glow-y),
+    rgba(17, 24, 39, 0.04),
+    transparent 40%
+  );
+  pointer-events: none;
+  opacity: var(--glow-opacity);
+  transition: opacity 0.3s;
+}
+
 /* Focus visible for accessibility */
 :focus-visible {
   outline: 3px solid var(--ring);
