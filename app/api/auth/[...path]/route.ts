@@ -6,7 +6,9 @@ const BFF_BASE_URL = process.env.BFF_BASE_URL || process.env.AUTH_BFF_URL || 'ht
  * Proxy auth requests to the BFF
  */
 async function proxyToBff(request: NextRequest, path: string) {
-  const url = `${BFF_BASE_URL}${path}`;
+  // Preserve query string (e.g., ?code=xxx&state=yyy for OIDC callback)
+  const queryString = request.nextUrl.search;
+  const url = `${BFF_BASE_URL}${path}${queryString}`;
 
   const headers = new Headers();
   request.headers.forEach((value, key) => {
