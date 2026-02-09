@@ -26,12 +26,32 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // In a real implementation, this would call the auth API
-      // For now, redirect to the BFF login endpoint
-      const loginUrl = `/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
-      window.location.href = loginUrl;
+      const response = await fetch("/auth/direct/platform/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "same-origin",
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.authenticated) {
+        // Session cookie was set by auth-bff — redirect to dashboard
+        window.location.href = returnTo;
+        return;
+      }
+
+      // Handle specific errors
+      if (data.error === "RATE_LIMITED") {
+        setError("Too many login attempts. Please try again later.");
+      } else if (data.error === "ACCOUNT_LOCKED") {
+        setError("Your account has been temporarily locked due to multiple failed attempts.");
+      } else {
+        setError(data.message || "Invalid email or password.");
+      }
     } catch {
-      setError("An error occurred. Please try again.");
+      setError("Unable to connect to the authentication service. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   }
