@@ -37,8 +37,17 @@ async function proxyToBff(request: NextRequest, path: string) {
 
     const responseHeaders = new Headers();
     response.headers.forEach((value, key) => {
-      responseHeaders.set(key, value);
+      // Skip set-cookie here — handled separately below
+      if (key.toLowerCase() !== 'set-cookie') {
+        responseHeaders.set(key, value);
+      }
     });
+
+    // Forward all Set-Cookie headers individually (Headers API merges them)
+    const setCookies = response.headers.getSetCookie?.() || [];
+    for (const cookie of setCookies) {
+      responseHeaders.append('set-cookie', cookie);
+    }
 
     const data = await response.text();
 
