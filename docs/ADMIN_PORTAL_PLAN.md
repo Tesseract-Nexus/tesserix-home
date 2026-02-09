@@ -372,6 +372,14 @@ Consolidated from deferred items across all completed phases.
 - [ ] Bulk actions (assign, close, change priority)
 - [ ] Email notifications on ticket status changes (backend exists in notification-service, needs frontend wiring)
 
+### From marketplace-clients#31 — Tenant Support Submissions ([GitHub](https://github.com/Tesseract-Nexus/marketplace-clients/issues/31))
+_The tenant-facing side (forms, sidebar) lives in marketplace-clients/admin. Below are only the tesserix-home items._
+- [x] Dashboard view of all incoming tickets across tenants
+- [x] Status management and response/comment thread
+- [ ] View file attachments on tickets (screenshots, logs uploaded by tenant admins)
+- [ ] Separate feature request view/board (distinct from support tickets)
+- [ ] Ticket category filtering (Bug, Billing, Account, Integration, Feature Request, Enhancement)
+
 ### From Issue #3 — Stripe Payment Gateway ([GitHub #3](https://github.com/Tesseract-Nexus/tesserix-home/issues/3))
 - [ ] Stripe Connect setup for receiving subscription payments
 - [ ] Stripe webhook endpoint (`/api/webhooks/stripe`) with signature verification
