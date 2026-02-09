@@ -45,16 +45,16 @@ Tesserix Home (`tesserix.app`) serves dual purposes: the public marketing site a
 - `auth-bff` (Node.js) — OIDC proxy to Keycloak dual realms
 - `notification-service` (Go) — Email templates for ticket status changes
 
-### What's Missing
+### What Was Missing (at project start, now mostly resolved)
 
-1. API routes are mock — not connected to real backend services
-2. Admin pages use hardcoded data — not fetching from API
-3. No loading/error states in admin pages
-4. No pagination support (backend supports it, UI has placeholder buttons)
-5. Session cookie name mismatch — middleware checks `session`, auth-bff sets `bff_session`
-6. No server-side auth validation in API routes (no session forwarding)
-7. Tenant detail tabs (Settings, Billing, Activity) are empty placeholders
-8. No "Visit Store" link logic (needs to construct URL from slug + BASE_DOMAIN)
+1. ~~API routes are mock — not connected to real backend services~~ → Fixed in Phase 1
+2. ~~Admin pages use hardcoded data — not fetching from API~~ → Fixed in Phase 1
+3. ~~No loading/error states in admin pages~~ → Fixed in Phase 1
+4. ~~No pagination support~~ → Fixed in Phase 1
+5. ~~Session cookie name mismatch~~ → Fixed in Phase 1
+6. ~~No server-side auth validation in API routes~~ → Fixed in Phase 1
+7. Tenant detail tabs (Settings, Billing, Activity) — still placeholders (see Pending Items)
+8. ~~No "Visit Store" link logic~~ → Fixed in Phase 1
 
 ---
 
@@ -226,29 +226,127 @@ Replace hardcoded stats and recent items with real API data.
 **TipTap Dependencies Added:**
 - `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-placeholder`, `@tiptap/extension-text-align`, `@tiptap/extension-underline`, `@tiptap/extension-highlight`, `@tiptap/pm`
 
-### Deferred
-- Image upload (URL-based only for now)
-- Theme/style editor (separate feature)
-- Content version history
-- Storefront live preview
-- AI content generation
+### Deferred → See Pending Items
 
-## Phase 3: Subscription & Billing (Future)
+## Phase 3: Subscription & Billing — COMPLETED
 
-- Payment gateway configuration (Stripe/Razorpay)
-- Subscription plan management
-- Invoice generation and history
-- Usage metering dashboard
+**Status:** All steps completed. Commit: `3bb12ab`
 
-## Phase 4: Advanced Features (Future)
+**Architecture:** Subscription plans and tenant subscriptions are managed by `subscription-service` (Go) in global-services. The admin portal proxies to it via `SUBSCRIPTION_SERVICE_URL`. Stripe integration is handled server-side by subscription-service.
 
-- Email template editor
-- Feature flags management (GrowthBook integration)
-- System health monitoring dashboard
-- Audit log viewer
+### What Was Built
+
+**Infrastructure:**
+- Added `SUBSCRIPTION_SERVICE_URL` to `admin-fetch.ts` (service type: `'subscription'`)
+- Added `/billing` to middleware `ADMIN_PATHS` for auth protection
+- Added K8s env var: `SUBSCRIPTION_SERVICE_URL=http://subscription-service.marketplace.svc.cluster.local:8080/api/v1`
+
+**API Layer:**
+- `app/api/subscriptions/plans/route.ts` — GET/POST proxy to subscription-service `/plans`
+- `lib/api/subscriptions.ts` — Types, hooks (`usePlans`, `useSubscriptions`), mutation helpers
+
+**Pages:**
+- `app/(admin)/billing/page.tsx` — Subscription plans list, tenant subscription management
+- Sidebar updated with "Billing" nav item
+
+### Deferred → See Pending Items
+
+## Platform Migration: tickets-service — COMPLETED
+
+**Status:** Completed 2026-02-09.
+
+Moved `tickets-service` from `marketplace-services` to `global-services` — it's a platform concern (support tickets for Mark8ly itself), not tenant-specific marketplace logic.
+
+### What Changed
+- **global-services:** Copied `tickets-service/` directory (Go code, migrations, Dockerfile) and CI/CD workflows
+- **tesserix-k8s:** Updated `image.repository` in Helm values to `ghcr.io/tesseract-nexus/global-services/tickets-service`, moved ArgoCD apps from `marketplace/` to `global/` app-of-apps tree
+- **marketplace-services:** Deleted `tickets-service/` directory and CI/CD workflows
+
+### What Didn't Change
+- K8s service DNS: still `tickets-service.marketplace.svc.cluster.local:8080` (deploys to `marketplace` namespace)
+- No code changes in tesserix-home, marketplace-clients, or the Go service itself
+- All consumers use `TICKETS_SERVICE_URL` env var — zero impact
+
+## Phase 4: Tenant Self-Serve Onboarding (Next)
+
+- Integrate Stripe Checkout into `marketplace-clients/tenant-onboarding` for self-serve subscription during onboarding
+- Connect onboarding flow to subscription-service plan selection
+- Payment confirmation → tenant provisioning pipeline
+
+## Phase 5: Advanced Admin Features — COMPLETED
+
+**Status:** All steps completed. Commit: `146eb6a` (tesserix-home), `9153a4b2` (tesserix-k8s)
+
+**Architecture:** 4 new admin sections, each fronting an existing backend service. All follow the same BFF proxy pattern: `lib/api/*.ts` hooks → `app/api/**/route.ts` proxy routes → `adminFetch(service, path)` → backend service.
+
+### What Was Built
+
+**Infrastructure (Step 0):**
+- Added 4 new services to `admin-fetch.ts`: `audit`, `status-dashboard`, `feature-flags`, `notification`
+- Added 4 auth paths to `middleware.ts`: `/audit-logs`, `/system-health`, `/feature-flags`, `/email-templates`
+- Added 4 sidebar nav items with icons (ScrollText, Activity, ToggleLeft, Mail)
+- Added 4 K8s env vars to `values.yaml` + ArgoCD inline parameters (devtest + prod)
+
+**Audit Log Viewer (Step 1) — 8 files:**
+- `lib/api/audit-logs.ts` — Types (`AuditLog`, `AuditLogSummary`, `RetentionSettings`, `ComplianceReport`), hooks, mutations
+- 6 API routes: list, detail, summary, compliance report, retention (GET/PUT), cleanup (POST)
+- `app/(admin)/audit-logs/page.tsx` — Stats cards, event log table with search/severity filter, detail dialog, compliance tab with findings, retention settings card
+
+**System Health Dashboard (Step 2) — 6 files:**
+- `lib/api/system-health.ts` — Types (`SystemStatus`, `MonitoredService`, `Incident`), hooks
+- 4 API routes: status, services list, service detail, incidents
+- `app/(admin)/system-health/page.tsx` — Color-coded status banner, services grid (latency/uptime/health), active incidents with update timeline, 30s auto-refresh
+
+**Feature Flags Management (Step 3) — 9 files:**
+- `lib/api/feature-flags.ts` — Types (`FeatureFlag`, `Experiment`, `ExperimentVariant`), hooks, mutations (override/clear/evaluate)
+- 6 API routes: list flags, evaluate, set override, clear override, list experiments, experiment detail
+- `app/(admin)/feature-flags/page.tsx` — Tabs: flags table with override actions, experiments table with links
+- `app/(admin)/feature-flags/[id]/page.tsx` — Experiment detail: variants as cards, metrics table (participants/conversions/rate)
+
+**Email Templates (Step 4) — 9 files:**
+- `lib/api/email-templates.ts` — Types (`EmailTemplate`, `Notification`), hooks, mutations (CRUD + test send)
+- 6 API routes: templates CRUD, test send, notifications list/detail/status
+- `app/(admin)/email-templates/page.tsx` — Tabs: templates table, notification log with delivery detail dialog
+- `app/(admin)/email-templates/[id]/page.tsx` — Two-column editor (name/subject/variables/HTML body + status/type/test send cards), supports `/email-templates/new`
+
+**File count:** 7 modified + 32 created = 39 total files (35 in tesserix-home + 3 in tesserix-k8s + plan doc)
+
+## Phase 6: Future Enhancements
+
 - Staff management (roles, permissions)
-- Analytics dashboard (tenant growth, revenue)
+- Analytics dashboard (tenant growth, revenue metrics)
 - Domain management (custom domain status, DNS verification)
+- Content version history and AI generation
+- Real-time notifications (WebSocket)
+
+---
+
+## Pending Items
+
+Consolidated from deferred items across all completed phases.
+
+### From Phase 1 (Wire Up Real Data)
+- [ ] Suspend/Activate tenant buttons — UI-only, no API wired yet
+- [ ] Tenant detail tabs (Settings, Billing, Activity) — still show "coming soon"
+- [ ] Optimistic UI for ticket comments — currently full reload after submission
+
+### From Phase 2 (Content Management)
+- [ ] Image upload for content pages — URL-based only for now
+- [ ] Theme/style editor — separate feature
+- [ ] Content version history
+- [ ] Storefront live preview
+- [ ] AI content generation
+
+### From Phase 3 (Subscription & Billing)
+- [ ] Stripe Checkout integration for tenant self-serve onboarding (→ Phase 4)
+- [ ] Invoice generation and history
+- [ ] Usage metering dashboard
+
+### From Phase 5 (Advanced Admin Features)
+- [ ] Audit log export (CSV/JSON download)
+- [ ] Feature flag creation/deletion via UI (currently read-only + override)
+- [ ] Email template HTML preview pane (live render)
+- [ ] System health historical charts (uptime over time)
 
 ---
 
@@ -306,11 +404,12 @@ Platform Admin views /tickets:
 | `TICKETS_SERVICE_URL` | K8s env / ArgoCD | Backend tickets service URL |
 | `AUTH_BFF_URL` | K8s env / ArgoCD | Auth BFF for session validation |
 | `MARKETPLACE_SETTINGS_SERVICE_URL` | K8s env / ArgoCD | Marketplace settings service for content management |
+| `SUBSCRIPTION_SERVICE_URL` | K8s env / ArgoCD | Subscription service for billing/plans |
+| `AUDIT_SERVICE_URL` | K8s env / ArgoCD | Audit service for audit log viewer |
+| `STATUS_DASHBOARD_SERVICE_URL` | K8s env / ArgoCD | Status dashboard service for system health |
+| `FEATURE_FLAGS_SERVICE_URL` | K8s env / ArgoCD | Feature flags service for flag management |
+| `NOTIFICATION_SERVICE_URL` | K8s env / ArgoCD | Notification service for email templates |
 | `INTERNAL_SERVICE_KEY` | GCP Secret Manager → ExternalSecret | Auth key for auth-bff /internal/get-token |
 | `NEXT_PUBLIC_DEV_AUTH_BYPASS` | Local .env only | Dev mode skip auth |
 | `NEXT_PUBLIC_BASE_DOMAIN` | K8s env / ArgoCD | Base domain for tenant URLs |
 
-### Remaining Phase 1 Gaps
-- Suspend/Activate tenant buttons are UI-only (no API wired yet)
-- Tenant detail tabs (Settings, Billing, Activity) still show "coming soon"
-- No optimistic UI for ticket comments (full reload after submission)
