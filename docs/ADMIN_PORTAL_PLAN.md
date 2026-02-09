@@ -58,7 +58,9 @@ Tesserix Home (`tesserix.app`) serves dual purposes: the public marketing site a
 
 ---
 
-## Phase 1: Wire Up Real Data (MVP)
+## Phase 1: Wire Up Real Data (MVP) — COMPLETED
+
+**Status:** All steps completed. Commits: `e9d6b57`, `8dce143`, `9eb7ec5e`
 
 **Goal:** Replace all mock data with real API calls. Make the admin portal functional with live data from tenant-service and tickets-service.
 
@@ -234,18 +236,39 @@ Browser → tesserix.app/dashboard
   → Redirect back to /dashboard
 ```
 
-### API Proxy Pattern
+### API Proxy Pattern (JWT Exchange)
 ```
 Browser → /api/tenants (Next.js API route)
   → Reads bff_session cookie
-  → Forwards request to TENANT_SERVICE_URL with auth headers
+  → Calls auth-bff /internal/get-token to exchange session for JWT
+  → Forwards request to TENANT_SERVICE_URL with Authorization: Bearer <jwt>
   → Returns response to browser
 ```
 
+**Important:** Backend Go services require JWT tokens (validated by Istio), NOT session cookies. The `admin-fetch.ts` helper exchanges the session cookie for a JWT via auth-bff's `/internal/get-token` endpoint, then forwards requests with `Authorization: Bearer` header.
+
 All backend calls go through Next.js API routes (BFF pattern). The browser never calls backend services directly. This:
 - Keeps service URLs internal (not exposed to client)
-- Allows server-side auth validation
+- Allows server-side auth validation via JWT exchange
 - Provides a single point for error handling and response transformation
+
+### Cross-Tenant Ticket Aggregation
+```
+Platform Admin views /tickets:
+  → GET /api/tickets (Next.js route)
+  → Fetch all tenant IDs via tenant-service /api/v1/users/me/tenants
+  → For each tenant: GET tickets-service /tickets?tenant_id=X (parallel)
+  → Merge, sort by updated_at desc, paginate client-side
+  → Return aggregated results
+```
+
+**Reason:** tickets-service requires `tenant_id` on every request (fail-closed middleware). There's no cross-tenant view endpoint. Platform admins get an aggregated view by fetching tickets per-tenant in parallel.
+
+### Data Isolation
+- **tesserix-home** (platform admin) → Keycloak `tesserix-internal` realm → JWT with `platform-owner=true`
+- **marketplace-clients** (tenant admin) → Keycloak `tesserix-customer` realm → JWT with `tenant_id`
+- Same backend services, different JWT claims → different data returned
+- No backend code was modified — all changes are in tesserix-home only
 
 ### Environment Variables
 | Variable | Where Set | Purpose |
@@ -253,5 +276,11 @@ All backend calls go through Next.js API routes (BFF pattern). The browser never
 | `TENANT_SERVICE_URL` | K8s env / ArgoCD | Backend tenant service URL |
 | `TICKETS_SERVICE_URL` | K8s env / ArgoCD | Backend tickets service URL |
 | `AUTH_BFF_URL` | K8s env / ArgoCD | Auth BFF for session validation |
+| `INTERNAL_SERVICE_KEY` | GCP Secret Manager → ExternalSecret | Auth key for auth-bff /internal/get-token |
 | `NEXT_PUBLIC_DEV_AUTH_BYPASS` | Local .env only | Dev mode skip auth |
 | `NEXT_PUBLIC_BASE_DOMAIN` | K8s env / ArgoCD | Base domain for tenant URLs |
+
+### Remaining Phase 1 Gaps
+- Suspend/Activate tenant buttons are UI-only (no API wired yet)
+- Tenant detail tabs (Settings, Billing, Activity) still show "coming soon"
+- No optimistic UI for ticket comments (full reload after submission)
