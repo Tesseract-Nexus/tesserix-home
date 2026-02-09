@@ -66,8 +66,8 @@ export async function middleware(request: NextRequest) {
     const sessionCookie = request.cookies.get('bff_home_session');
 
     if (!sessionCookie) {
-      // Redirect to login with return URL
-      const loginUrl = new URL('/login', request.url);
+      // Redirect directly to OIDC login flow via auth-bff
+      const loginUrl = new URL('/api/auth/login', request.url);
       loginUrl.searchParams.set('returnTo', pathname);
       return NextResponse.redirect(loginUrl);
     }
