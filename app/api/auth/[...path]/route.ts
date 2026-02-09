@@ -6,7 +6,7 @@ const BFF_BASE_URL = process.env.BFF_BASE_URL || process.env.AUTH_BFF_URL || 'ht
  * Proxy auth requests to the BFF.
  *
  * For redirects (302): extracts Set-Cookie headers and sets them on the
- * NextResponse redirect, ensuring cookies survive the proxy layer.
+ * response redirect, ensuring cookies survive the proxy layer.
  * For other responses: forwards headers, status, and body as-is.
  */
 async function proxyToBff(request: NextRequest, path: string) {
@@ -45,10 +45,12 @@ async function proxyToBff(request: NextRequest, path: string) {
   try {
     const response = await fetch(url, init);
 
-    // Collect Set-Cookie headers
+    // Collect Set-Cookie headers using getSetCookie() to avoid header merging issues
     const setCookies = response.headers.getSetCookie?.() || [];
 
-    // Handle redirects: build a NextResponse.redirect and attach cookies
+    console.log(`[Auth Proxy] ${path} → ${response.status}, setCookies: ${setCookies.length}`, setCookies);
+
+    // Handle redirects: build a manual 302 response with cookies
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
       if (location) {
@@ -60,12 +62,22 @@ async function proxyToBff(request: NextRequest, path: string) {
           ? location
           : new URL(location, externalOrigin).toString();
 
-        const redirectResponse = NextResponse.redirect(redirectUrl, response.status);
+        console.log(`[Auth Proxy] Redirect: ${location} → ${redirectUrl}`);
+
+        // Use manual Response instead of NextResponse.redirect() to ensure Set-Cookie headers are preserved
+        const redirectResponse = new NextResponse(null, {
+          status: response.status,
+          headers: {
+            Location: redirectUrl,
+          },
+        });
 
         // Attach all Set-Cookie headers from auth-bff
         for (const cookie of setCookies) {
           redirectResponse.headers.append('set-cookie', cookie);
         }
+
+        console.log('[Auth Proxy] Response Set-Cookie headers:', redirectResponse.headers.getSetCookie?.());
 
         return redirectResponse;
       }
