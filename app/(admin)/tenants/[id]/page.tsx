@@ -1,8 +1,8 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Mail, Calendar, Building2, Globe } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Calendar, Building2, Globe, CreditCard, FileText, RefreshCw } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/admin/error-state";
 import { useTenant } from "@/lib/api/tenants";
+import {
+  useTenantSubscription,
+  useTenantInvoices,
+  cancelSubscription,
+  reactivateSubscription,
+  createPortalSession,
+  type TenantSubscription,
+  type SubscriptionInvoice,
+} from "@/lib/api/subscriptions";
 
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || "tesserix.app";
 
@@ -45,6 +54,276 @@ function DetailSkeleton() {
           </Card>
         ))}
       </div>
+    </div>
+  );
+}
+
+function getSubscriptionStatusColor(status: string) {
+  switch (status) {
+    case "active":
+      return "success";
+    case "trialing":
+      return "info";
+    case "past_due":
+      return "destructive";
+    case "canceled":
+      return "secondary";
+    default:
+      return "warning";
+  }
+}
+
+function getInvoiceStatusColor(status: string) {
+  switch (status) {
+    case "paid":
+      return "success";
+    case "open":
+      return "warning";
+    case "void":
+      return "secondary";
+    default:
+      return "default";
+  }
+}
+
+function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+function TenantBillingTab({ tenantId }: { tenantId: string }) {
+  const { data: subscription, isLoading: subLoading, error: subError, mutate: mutateSub } = useTenantSubscription(tenantId);
+  const { data: invoices, isLoading: invLoading } = useTenantInvoices(tenantId);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  async function handleCancel() {
+    if (!confirm("Cancel this subscription? It will remain active until the end of the current period.")) return;
+    setActionLoading(true);
+    await cancelSubscription(tenantId);
+    setActionLoading(false);
+    mutateSub();
+  }
+
+  async function handleReactivate() {
+    setActionLoading(true);
+    await reactivateSubscription(tenantId);
+    setActionLoading(false);
+    mutateSub();
+  }
+
+  async function handleManageBilling() {
+    setActionLoading(true);
+    const result = await createPortalSession(tenantId);
+    setActionLoading(false);
+    if (result.data?.portal_url) {
+      window.open(result.data.portal_url, "_blank");
+    }
+  }
+
+  if (subLoading) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader><Skeleton className="h-6 w-48" /></CardHeader>
+          <CardContent className="space-y-3">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (subError) {
+    return <ErrorState message={subError} onRetry={mutateSub} />;
+  }
+
+  if (!subscription) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>No Subscription</CardTitle>
+          <CardDescription>This tenant does not have an active subscription yet.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            The tenant will be automatically assigned a subscription when they complete the Stripe checkout flow.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Current Plan */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Current Plan
+              </CardTitle>
+              <CardDescription>Subscription and billing details</CardDescription>
+            </div>
+            <Badge variant={getSubscriptionStatusColor(subscription.status)}>
+              {subscription.status}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Plan</p>
+              <p className="text-lg font-semibold">{subscription.plan?.display_name || "Unknown"}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Billing</p>
+              <p className="text-lg font-semibold capitalize">{subscription.billing_interval}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Current Period</p>
+              <p className="text-sm">
+                {subscription.current_period_start
+                  ? new Date(subscription.current_period_start).toLocaleDateString()
+                  : "-"}{" "}
+                &mdash;{" "}
+                {subscription.current_period_end
+                  ? new Date(subscription.current_period_end).toLocaleDateString()
+                  : "-"}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Next Billing</p>
+              <p className="text-sm">
+                {subscription.cancel_at_period_end
+                  ? "Cancels at period end"
+                  : subscription.current_period_end
+                    ? new Date(subscription.current_period_end).toLocaleDateString()
+                    : "-"}
+              </p>
+            </div>
+          </div>
+
+          {subscription.cancel_at_period_end && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-200">
+              This subscription is set to cancel at the end of the current billing period.
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 border-t pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManageBilling}
+              disabled={actionLoading}
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Manage in Stripe
+            </Button>
+            {subscription.cancel_at_period_end ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReactivate}
+                disabled={actionLoading}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reactivate
+              </Button>
+            ) : subscription.status === "active" || subscription.status === "trialing" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancel}
+                disabled={actionLoading}
+                className="text-destructive hover:text-destructive"
+              >
+                Cancel Subscription
+              </Button>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Invoice History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Invoice History
+          </CardTitle>
+          <CardDescription>Recent invoices for this tenant</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {invLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : !invoices || invoices.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No invoices yet</p>
+          ) : (
+            <div className="rounded-lg border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="px-4 py-2 text-left font-medium">Date</th>
+                    <th className="px-4 py-2 text-left font-medium">Amount</th>
+                    <th className="px-4 py-2 text-left font-medium">Status</th>
+                    <th className="px-4 py-2 text-right font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.map((invoice: SubscriptionInvoice) => (
+                    <tr key={invoice.id} className="border-b last:border-0">
+                      <td className="px-4 py-2">
+                        {invoice.created_at
+                          ? new Date(invoice.created_at).toLocaleDateString()
+                          : "-"}
+                      </td>
+                      <td className="px-4 py-2 font-medium">
+                        {formatCents(invoice.amount_due_cents)}
+                      </td>
+                      <td className="px-4 py-2">
+                        <Badge variant={getInvoiceStatusColor(invoice.status)}>
+                          {invoice.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {invoice.stripe_hosted_url && (
+                            <a
+                              href={invoice.stripe_hosted_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline text-xs"
+                            >
+                              View
+                            </a>
+                          )}
+                          {invoice.stripe_invoice_pdf && (
+                            <a
+                              href={invoice.stripe_invoice_pdf}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline text-xs"
+                            >
+                              PDF
+                            </a>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -229,15 +508,7 @@ export default function TenantDetailPage({
               </TabsContent>
 
               <TabsContent value="billing">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Billing Information</CardTitle>
-                    <CardDescription>Subscription and payment details</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">Billing management coming soon...</p>
-                  </CardContent>
-                </Card>
+                <TenantBillingTab tenantId={id} />
               </TabsContent>
 
               <TabsContent value="activity">

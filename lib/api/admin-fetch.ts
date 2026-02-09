@@ -5,9 +5,10 @@ const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://localhost:8
 const TICKETS_SERVICE_URL = process.env.TICKETS_SERVICE_URL || 'http://localhost:8081/api/v1';
 const AUTH_BFF_URL = process.env.AUTH_BFF_URL || 'http://localhost:8082';
 const MARKETPLACE_SETTINGS_SERVICE_URL = process.env.MARKETPLACE_SETTINGS_SERVICE_URL || 'http://localhost:8085/api/v1';
+const SUBSCRIPTION_SERVICE_URL = process.env.SUBSCRIPTION_SERVICE_URL || 'http://localhost:8093';
 const INTERNAL_SERVICE_KEY = process.env.INTERNAL_SERVICE_KEY || '';
 
-export type ServiceName = 'tenant' | 'tickets' | 'auth' | 'settings';
+export type ServiceName = 'tenant' | 'tickets' | 'auth' | 'settings' | 'subscription';
 
 function getServiceBaseUrl(service: ServiceName): string {
   switch (service) {
@@ -19,6 +20,8 @@ function getServiceBaseUrl(service: ServiceName): string {
       return AUTH_BFF_URL;
     case 'settings':
       return MARKETPLACE_SETTINGS_SERVICE_URL;
+    case 'subscription':
+      return SUBSCRIPTION_SERVICE_URL;
   }
 }
 

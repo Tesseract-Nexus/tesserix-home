@@ -8,6 +8,7 @@ import {
   Users,
   Ticket,
   FileText,
+  CreditCard,
   Settings,
   LogOut,
   Menu,
@@ -25,6 +26,7 @@ const navigation = [
   { name: "Tenants", href: "/tenants", icon: Users },
   { name: "Tickets", href: "/tickets", icon: Ticket },
   { name: "Content", href: "/content", icon: FileText },
+  { name: "Billing", href: "/billing", icon: CreditCard },
 ];
 
 const secondaryNavigation = [

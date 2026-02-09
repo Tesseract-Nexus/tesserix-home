@@ -25,6 +25,7 @@ const ADMIN_PATHS = [
   '/tenants',
   '/tickets',
   '/content',
+  '/billing',
 ];
 
 function isPublicPath(pathname: string): boolean {

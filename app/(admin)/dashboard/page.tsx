@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Building2, Ticket, TrendingUp, ArrowRight } from "lucide-react";
+import { Users, Building2, Ticket, DollarSign, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { AdminHeader } from "@/components/admin/header";
 import { StatsCard } from "@/components/admin/stats-card";
@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/admin/error-state";
 import { useTenants, type Tenant } from "@/lib/api/tenants";
 import { useTickets, type Ticket as TicketType } from "@/lib/api/tickets";
+import { useSubscriptionStats } from "@/lib/api/subscriptions";
 
 function getStatusColor(status: string) {
   switch (status?.toLowerCase()) {
@@ -80,9 +81,11 @@ export default function DashboardPage() {
   const { data: tenantsData, isLoading: tenantsLoading, error: tenantsError, mutate: mutateTenants } = useTenants({ limit: 4 });
   const { data: ticketsData, isLoading: ticketsLoading, error: ticketsError, mutate: mutateTickets } = useTickets({ limit: 4 });
   const { data: openTicketsData } = useTickets({ status: 'open', limit: 1 });
+  const { data: subscriptionStats } = useSubscriptionStats();
 
   const totalTenants = tenantsData?.total ?? 0;
   const openTickets = openTicketsData?.total ?? 0;
+  const mrr = subscriptionStats?.mrr ?? 0;
   const recentTenants = tenantsData?.data ?? [];
   const recentTickets = ticketsData?.data ?? [];
 
@@ -106,10 +109,10 @@ export default function DashboardPage() {
               icon={<Building2 className="h-4 w-4" />}
             />
             <StatsCard
-              title="Active Tenants"
-              value={totalTenants}
-              description="Currently active"
-              icon={<Users className="h-4 w-4" />}
+              title="Monthly Revenue"
+              value={`$${(mrr / 100).toLocaleString()}`}
+              description="MRR"
+              icon={<DollarSign className="h-4 w-4" />}
             />
             <StatsCard
               title="Open Tickets"
@@ -118,10 +121,10 @@ export default function DashboardPage() {
               icon={<Ticket className="h-4 w-4" />}
             />
             <StatsCard
-              title="Total Tickets"
-              value={ticketsData?.total ?? 0}
-              description="All time"
-              icon={<TrendingUp className="h-4 w-4" />}
+              title="Active Subscriptions"
+              value={subscriptionStats?.active_subscriptions ?? 0}
+              description="Paying tenants"
+              icon={<Users className="h-4 w-4" />}
             />
           </div>
         )}
