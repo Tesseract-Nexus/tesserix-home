@@ -95,33 +95,16 @@ async function proxyToBff(request: NextRequest, path: string) {
           ? location
           : new URL(location, externalOrigin).toString();
 
-        // If there are cookies to set (e.g., callback response), use a debug page
-        // to verify cookies are being set before redirecting.
+        // Set cookies on redirect response using NextResponse.cookies.set() API
         if (setCookies.length > 0) {
-          const cookieInfo = setCookies.map(c => c.substring(0, 200)).join('\n');
-          const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
-<h2>Auth Debug - Cookies being set:</h2>
-<pre>${cookieInfo}</pre>
-<p>Check DevTools &gt; Application &gt; Cookies for <code>bff_home_session</code></p>
-<p><a href="${redirectUrl}">Click here to continue to dashboard</a></p>
-<p><small>Will auto-redirect in 5 seconds...</small></p>
-<script>setTimeout(function(){window.location.href=${JSON.stringify(redirectUrl)}},5000)</script>
-</body></html>`;
-          const htmlResponse = new NextResponse(html, {
-            status: 200,
-            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
-          });
-          // Set both the auth cookie AND a test cookie to diagnose which attributes cause rejection
+          const redirectResponse = NextResponse.redirect(redirectUrl, response.status);
           for (const raw of setCookies) {
             const parsed = parseSetCookie(raw);
             if (parsed) {
-              htmlResponse.cookies.set(parsed.name, parsed.value, parsed.options);
-              console.log(`[Auth Proxy] Set auth cookie: ${parsed.name}, domain=${parsed.options.domain}, secure=${parsed.options.secure}, httpOnly=${parsed.options.httpOnly}, sameSite=${parsed.options.sameSite}`);
+              redirectResponse.cookies.set(parsed.name, parsed.value, parsed.options);
             }
           }
-          // Simple test cookie — no domain, no secure, no httponly
-          htmlResponse.cookies.set('_test_cookie', 'works', { path: '/', maxAge: 300 });
-          return htmlResponse;
+          return redirectResponse;
         }
 
         // No cookies — use standard 302 redirect

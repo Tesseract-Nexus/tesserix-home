@@ -57,6 +57,7 @@ async function getAccessToken(sessionCookieValue: string): Promise<TokenResponse
     const response = await fetch(`${AUTH_BFF_URL}/internal/get-token`, {
       headers: {
         'Cookie': `bff_home_session=${sessionCookieValue}`,
+        'x-forwarded-host': 'company.tesserix.app',
         ...(INTERNAL_SERVICE_KEY ? { 'X-Internal-Service-Key': INTERNAL_SERVICE_KEY } : {}),
       },
     });
@@ -171,6 +172,7 @@ export async function getSessionContext(): Promise<{
     const sessionResponse = await fetch(`${AUTH_BFF_URL}/auth/session`, {
       headers: {
         'Cookie': `bff_home_session=${sessionCookie.value}`,
+        'x-forwarded-host': 'company.tesserix.app',
       },
     });
 
