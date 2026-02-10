@@ -24,8 +24,15 @@ export default function Error({
           <p className="text-muted-foreground max-w-md mx-auto">
             We encountered an unexpected error. Please try again or contact support if the problem persists.
           </p>
+          {/* Temporary: show error details for debugging */}
+          <div className="mt-4 max-w-lg mx-auto text-left rounded-lg bg-muted p-4 text-xs font-mono overflow-auto max-h-48">
+            <p className="text-destructive font-semibold">{error.message}</p>
+            {error.stack && (
+              <pre className="mt-2 text-muted-foreground whitespace-pre-wrap break-words">{error.stack}</pre>
+            )}
+          </div>
           {error.digest && (
-            <p className="text-xs text-muted-foreground font-mono">
+            <p className="text-xs text-muted-foreground font-mono mt-2">
               Error ID: {error.digest}
             </p>
           )}

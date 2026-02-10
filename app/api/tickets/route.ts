@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
     const tenantIdFilter = searchParams.get('tenantId');
 
     const session = await getSessionContext();
+    console.log(`[Tickets API] getSessionContext → ${session ? `userId=${session.userId}, tenantId=${session.tenantId || 'none'}` : 'null (unauthorized)'}`);
     if (!session) {
       return apiError('Unauthorized', 401);
     }
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
 
     const tenantsData = await tenantsResponse.json();
     const tenants = tenantsData.data || tenantsData || [];
+    console.log(`[Tickets API] Fetched ${Array.isArray(tenants) ? tenants.length : 0} tenants for ticket aggregation`);
 
     if (!Array.isArray(tenants) || tenants.length === 0) {
       return NextResponse.json({ data: [], total: 0, page: 1, pageSize: 20 });

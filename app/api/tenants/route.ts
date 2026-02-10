@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
 
     // Platform admin fetches all tenants via membership endpoint
     const response = await adminFetch('tenant', `/api/v1/users/me/tenants?${params}`);
+    console.log(`[Tenants API] GET /api/v1/users/me/tenants → status ${response.status}`);
 
     if (response.status === 401) {
       return apiError('Unauthorized', 401);
