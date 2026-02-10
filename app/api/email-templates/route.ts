@@ -7,6 +7,7 @@ function mapTemplate(t: any) {
   return {
     id: t.id,
     name: t.name,
+    slug: t.slug || '',
     type: (t.channel || 'EMAIL').toLowerCase(),
     category: t.category || '',
     subject: t.subject || '',

@@ -381,6 +381,7 @@ export function TemplateEditorPage({ scope, basePath, templateId }: TemplateEdit
         template={{
           id: templateId,
           name,
+          slug: '',
           subject,
           type,
           category,

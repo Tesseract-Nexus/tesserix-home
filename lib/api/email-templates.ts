@@ -10,6 +10,7 @@ export type NotificationStatus = 'pending' | 'sent' | 'failed' | 'bounced';
 export interface EmailTemplate {
   id: string;
   name: string;
+  slug: string;
   type: string;
   category?: string;
   subject: string;
