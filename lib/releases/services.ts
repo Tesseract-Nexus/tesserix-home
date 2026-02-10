@@ -1,4 +1,4 @@
-export type ServiceType = "backend" | "frontend" | "mfe";
+export type ServiceType = "backend" | "frontend";
 
 export interface ServiceConfig {
   name: string;
@@ -48,18 +48,6 @@ function clientApp(name: string, displayName: string): ServiceConfig {
   };
 }
 
-function mfe(name: string, displayName: string): ServiceConfig {
-  return {
-    name,
-    displayName,
-    type: "mfe",
-    repo: "",
-    buildWorkflow: "",
-    releaseWorkflow: "",
-    imageRepo: "",
-  };
-}
-
 export const SERVICE_REGISTRY: ServiceConfig[] = [
   // Global Services (15 Kargo-managed backends)
   globalService("settings-service", "Settings Service"),
@@ -91,17 +79,6 @@ export const SERVICE_REGISTRY: ServiceConfig[] = [
   clientApp("admin", "Admin Portal"),
   clientApp("storefront", "Storefront"),
   clientApp("tenant-onboarding", "Tenant Onboarding"),
-
-  // MFEs (9 — repo TBD)
-  mfe("products-hub", "Products Hub"),
-  mfe("categories-hub", "Categories Hub"),
-  mfe("orders-hub", "Orders Hub"),
-  mfe("staff-hub", "Staff Hub"),
-  mfe("vendor-hub", "Vendor Hub"),
-  mfe("coupons-hub", "Coupons Hub"),
-  mfe("reviews-hub", "Reviews Hub"),
-  mfe("tickets-hub", "Tickets Hub"),
-  mfe("user-management", "User Management"),
 ];
 
 /** Unique repos that have workflows (excludes MFEs with empty repo). */

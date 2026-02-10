@@ -9,6 +9,8 @@ import {
   Search,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "./status-badge";
-import type { ServiceInfo, BuildStatus } from "@/lib/api/releases";
+import { VersionChips } from "./version-chips";
+import { promoteService, type ServiceInfo, type BuildStatus } from "@/lib/api/releases";
 import type { ServiceType } from "@/lib/releases/services";
 
 type TypeFilter = "all" | ServiceType;
@@ -25,7 +28,6 @@ const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "backend", label: "Backend" },
   { value: "frontend", label: "Frontend" },
-  { value: "mfe", label: "MFE" },
 ];
 
 function FilterChip({
@@ -91,81 +93,220 @@ function repoGroupStatus(services: ServiceInfo[]): BuildStatus {
   return "none";
 }
 
-function ServiceRow({
+function bumpPatch(version: string): string {
+  const parts = version.split(".").map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return "";
+  return `${parts[0]}.${parts[1]}.${parts[2] + 1}`;
+}
+
+function InlinePromote({
   service,
-  onPromote,
+  onClose,
+  onSuccess,
 }: {
   service: ServiceInfo;
-  onPromote: (svc: ServiceInfo) => void;
+  onClose: () => void;
+  onSuccess: () => void;
 }) {
-  const canPromote = !!service.repo;
+  const currentVersion = service.latestRelease?.version ?? null;
+  const defaultVersion =
+    currentVersion && /^\d+\.\d+\.\d+$/.test(currentVersion)
+      ? bumpPatch(currentVersion)
+      : "";
+
+  const [version, setVersion] = useState(defaultVersion);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successInfo, setSuccessInfo] = useState<{
+    version: string;
+    repo: string;
+  } | null>(null);
+
+  const handleSubmit = async () => {
+    if (!version) return;
+    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+      setError("Version must be in semver format (e.g. 1.2.3)");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+    const result = await promoteService(service.name, version);
+    setIsSubmitting(false);
+    if (result.error) {
+      setError(result.error);
+    } else if (result.data) {
+      setSuccessInfo({ version: result.data.version, repo: result.data.repo });
+      onSuccess();
+    }
+  };
+
+  if (successInfo) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/5 p-3 mt-2">
+        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+        <p className="text-sm">
+          Release <span className="font-mono font-medium">v{successInfo.version}</span> triggered
+        </p>
+        <a
+          href={`https://github.com/${successInfo.repo}/actions`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-sm text-primary hover:underline ml-auto"
+        >
+          View in Actions
+          <ExternalLink className="h-3 w-3" />
+        </a>
+        <Button variant="ghost" size="sm" onClick={onClose} className="shrink-0 h-7 w-7 p-0">
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/30 transition-colors">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-sm truncate">{service.displayName}</p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <Badge variant="secondary" className="text-xs">
-              {service.type}
+    <div className="rounded-lg border bg-muted/30 p-3 mt-2 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Current:</span>
+          {currentVersion ? (
+            <Badge variant="outline" className="font-mono text-xs">
+              v{currentVersion}
             </Badge>
-          </div>
+          ) : (
+            <span className="text-muted-foreground">None</span>
+          )}
         </div>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
+          <X className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
-      {/* Build status */}
-      <div className="flex items-center gap-4 shrink-0">
-        <div className="text-right hidden sm:block min-w-[120px]">
-          {service.latestBuild ? (
-            <div className="space-y-0.5">
-              <StatusBadge status={service.latestBuild.status} />
-              <p className="text-xs text-muted-foreground truncate">
-                {service.latestBuild.tag}
-              </p>
-            </div>
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder="1.2.3"
+          value={version}
+          onChange={(e) => {
+            setVersion(e.target.value);
+            setError(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSubmit();
+            if (e.key === "Escape") onClose();
+          }}
+          className="font-mono h-8 max-w-[160px]"
+          autoFocus
+        />
+        <Button size="sm" onClick={handleSubmit} disabled={!version || isSubmitting} className="h-8">
+          {isSubmitting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
           ) : (
-            <span className="text-xs text-muted-foreground">-</span>
+            <Rocket className="h-3.5 w-3.5 mr-1" />
           )}
-        </div>
-
-        {/* Release version */}
-        <div className="text-right hidden md:block min-w-[100px]">
-          {service.latestRelease ? (
-            <div className="space-y-0.5">
-              <Badge variant="outline" className="font-mono text-xs">
-                v{service.latestRelease.version}
-              </Badge>
-              {service.latestRelease.status !== "none" && (
-                <StatusBadge status={service.latestRelease.status} />
-              )}
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground">-</span>
-          )}
-        </div>
-
-        {/* Promote */}
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!canPromote}
-          onClick={() => onPromote(service)}
-          className="shrink-0"
-        >
-          <Rocket className="h-3.5 w-3.5 mr-1" />
           Promote
         </Button>
       </div>
+
+      <VersionChips currentVersion={currentVersion} onSelect={setVersion} />
+
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+function ServiceRow({
+  service,
+  promoteOpen,
+  onTogglePromote,
+  onPromoteSuccess,
+}: {
+  service: ServiceInfo;
+  promoteOpen: boolean;
+  onTogglePromote: () => void;
+  onPromoteSuccess: () => void;
+}) {
+  const canPromote = !!service.repo;
+  return (
+    <div>
+      <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/30 transition-colors">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-sm truncate">{service.displayName}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant="secondary" className="text-xs">
+                {service.type}
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 shrink-0">
+          {/* Build status */}
+          <div className="text-right hidden sm:block min-w-[120px]">
+            {service.latestBuild ? (
+              <div className="space-y-0.5">
+                <StatusBadge status={service.latestBuild.status} />
+                <p className="text-xs text-muted-foreground truncate">
+                  {service.latestBuild.tag}
+                </p>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">-</span>
+            )}
+          </div>
+
+          {/* Release version */}
+          <div className="text-right hidden md:block min-w-[100px]">
+            {service.latestRelease ? (
+              <div className="space-y-0.5">
+                <Badge variant="outline" className="font-mono text-xs">
+                  v{service.latestRelease.version}
+                </Badge>
+                {service.latestRelease.status !== "none" && (
+                  <StatusBadge status={service.latestRelease.status} />
+                )}
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">-</span>
+            )}
+          </div>
+
+          {/* Promote toggle */}
+          <Button
+            variant={promoteOpen ? "default" : "outline"}
+            size="sm"
+            disabled={!canPromote}
+            onClick={onTogglePromote}
+            className="shrink-0"
+          >
+            <Rocket className="h-3.5 w-3.5 mr-1" />
+            Promote
+          </Button>
+        </div>
+      </div>
+
+      {/* Inline promote panel */}
+      {promoteOpen && (
+        <InlinePromote
+          service={service}
+          onClose={onTogglePromote}
+          onSuccess={onPromoteSuccess}
+        />
+      )}
     </div>
   );
 }
 
 function RepoGroupSection({
   group,
-  onPromote,
+  activePromote,
+  onTogglePromote,
+  onPromoteSuccess,
   defaultExpanded,
 }: {
   group: RepoGroup;
-  onPromote: (svc: ServiceInfo) => void;
+  activePromote: string | null;
+  onTogglePromote: (serviceName: string) => void;
+  onPromoteSuccess: () => void;
   defaultExpanded: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -210,7 +351,9 @@ function RepoGroupSection({
               <ServiceRow
                 key={svc.name}
                 service={svc}
-                onPromote={onPromote}
+                promoteOpen={activePromote === svc.name}
+                onTogglePromote={() => onTogglePromote(svc.name)}
+                onPromoteSuccess={onPromoteSuccess}
               />
             ))}
           </div>
@@ -224,7 +367,7 @@ export function ServicesTabSkeleton() {
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
-        {Array.from({ length: 4 }).map((_, i) => (
+        {Array.from({ length: 3 }).map((_, i) => (
           <Skeleton key={i} className="h-8 w-20 rounded-full" />
         ))}
       </div>
@@ -242,13 +385,14 @@ export function ServicesTabSkeleton() {
 
 export function ServicesTab({
   services,
-  onPromote,
+  onPromoteSuccess,
 }: {
   services: ServiceInfo[];
-  onPromote: (svc: ServiceInfo) => void;
+  onPromoteSuccess: () => void;
 }) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [search, setSearch] = useState("");
+  const [activePromote, setActivePromote] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     let result = services;
@@ -268,7 +412,6 @@ export function ServicesTab({
 
   const groups = useMemo(() => groupByRepo(filtered), [filtered]);
 
-  // Stats
   const failedBuilds = services.filter(
     (s) => s.latestBuild?.status === "failure"
   ).length;
@@ -279,12 +422,14 @@ export function ServicesTab({
     (s) => s.latestBuild?.status === "success"
   ).length;
 
-  // Type counts
   const typeCounts: Record<TypeFilter, number> = {
     all: services.length,
     backend: services.filter((s) => s.type === "backend").length,
     frontend: services.filter((s) => s.type === "frontend").length,
-    mfe: services.filter((s) => s.type === "mfe").length,
+  };
+
+  const handleTogglePromote = (serviceName: string) => {
+    setActivePromote((prev) => (prev === serviceName ? null : serviceName));
   };
 
   return (
@@ -381,7 +526,9 @@ export function ServicesTab({
           <RepoGroupSection
             key={group.repo}
             group={group}
-            onPromote={onPromote}
+            activePromote={activePromote}
+            onTogglePromote={handleTogglePromote}
+            onPromoteSuccess={onPromoteSuccess}
             defaultExpanded={groups.length <= 4}
           />
         ))

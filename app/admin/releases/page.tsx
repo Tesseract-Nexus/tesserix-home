@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Rocket, RefreshCw } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,7 @@ import {
   PipelinesTab,
   PipelinesTabSkeleton,
 } from "@/components/admin/releases/pipelines-tab";
-import { PromoteDialog } from "@/components/admin/releases/promote-dialog";
-import {
-  useServices,
-  usePipelines,
-  type ServiceInfo,
-} from "@/lib/api/releases";
+import { useServices, usePipelines } from "@/lib/api/releases";
 
 export default function ReleasesPage() {
   const {
@@ -36,10 +31,6 @@ export default function ReleasesPage() {
     mutate: refreshPipelines,
   } = usePipelines();
 
-  const [promoteService, setPromoteService] = useState<ServiceInfo | null>(
-    null
-  );
-  const [promoteOpen, setPromoteOpen] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-refresh every 30s
@@ -53,14 +44,16 @@ export default function ReleasesPage() {
     };
   }, [refreshServices, refreshPipelines]);
 
-  const handlePromote = (svc: ServiceInfo) => {
-    setPromoteService(svc);
-    setPromoteOpen(true);
-  };
-
   const handleRefresh = () => {
     refreshServices();
     refreshPipelines();
+  };
+
+  const handlePromoteSuccess = () => {
+    setTimeout(() => {
+      refreshServices();
+      refreshPipelines();
+    }, 2000);
   };
 
   const hasInProgress = pipelinesData?.data.some(
@@ -114,7 +107,7 @@ export default function ReleasesPage() {
             ) : (
               <ServicesTab
                 services={servicesData?.data ?? []}
-                onPromote={handlePromote}
+                onPromoteSuccess={handlePromoteSuccess}
               />
             )}
           </TabsContent>
@@ -133,19 +126,6 @@ export default function ReleasesPage() {
           </TabsContent>
         </Tabs>
       </main>
-
-      <PromoteDialog
-        service={promoteService}
-        open={promoteOpen}
-        onOpenChange={setPromoteOpen}
-        onSuccess={() => {
-          // Refresh after short delay to allow GitHub to start the workflow
-          setTimeout(() => {
-            refreshServices();
-            refreshPipelines();
-          }, 2000);
-        }}
-      />
     </>
   );
 }
