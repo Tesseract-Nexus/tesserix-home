@@ -170,6 +170,20 @@ export async function adminFetch(
   const jwtClaims = decodeJwtPayload(tokenData.access_token);
   const istioHeaders = jwtClaims ? getIstioClaimHeaders(jwtClaims) : {};
 
+  // If JWT decode failed (e.g. Logto opaque access tokens), build Istio-style
+  // headers from the session data returned by auth-bff /internal/get-token.
+  // This ensures Go services always receive the x-jwt-claim-* headers they expect.
+  if (!jwtClaims) {
+    if (tokenData.user_id) istioHeaders['x-jwt-claim-sub'] = tokenData.user_id;
+    if (tokenData.tenant_id) istioHeaders['x-jwt-claim-tenant-id'] = tokenData.tenant_id;
+  }
+
+  // tesserix-home is the platform admin app — all authenticated users are platform owners.
+  // Set platform_owner so Go services (IstioAuth + RBAC) grant cross-tenant access.
+  if (!istioHeaders['x-jwt-claim-platform-owner']) {
+    istioHeaders['x-jwt-claim-platform-owner'] = 'true';
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${tokenData.access_token}`,
@@ -177,10 +191,13 @@ export async function adminFetch(
     ...extraHeaders,
   };
 
-  // For tenant-scoped services (tickets), include tenant context
+  // For tenant-scoped services, include tenant context via Istio-style header.
+  // x-jwt-claim-tenant-id is trusted by IstioAuth; X-Tenant-ID is a legacy fallback.
   if (tenantId) {
+    headers['x-jwt-claim-tenant-id'] = tenantId;
     headers['X-Tenant-ID'] = tenantId;
   } else if (tokenData.tenant_id) {
+    headers['x-jwt-claim-tenant-id'] = tokenData.tenant_id;
     headers['X-Tenant-ID'] = tokenData.tenant_id;
   }
 
