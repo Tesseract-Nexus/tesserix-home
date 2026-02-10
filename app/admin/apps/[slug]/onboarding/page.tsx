@@ -12,9 +12,6 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
-  ArrowRight,
-  Loader2,
-  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -52,7 +49,6 @@ import { TableSkeleton } from "@/components/admin/table-skeleton";
 import { ErrorState } from "@/components/admin/error-state";
 import { EmptyState } from "@/components/admin/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   useOnboardingContent,
   createOnboardingItem,
@@ -66,23 +62,10 @@ import {
   type TrustBadge,
   type Contact,
   type CountryDefault,
-  type PaymentPlan,
   type Integration,
   type Guide,
   type PresentationSlide,
 } from "@/lib/api/onboarding-content";
-import {
-  usePlans,
-  type SubscriptionPlan,
-} from "@/lib/api/subscriptions";
-import { apiFetch } from "@/lib/api/use-api";
-import {
-  subscriptionToPaymentPlan,
-  subscriptionFeatureTexts,
-  calculateRegionalPrice,
-  SUPPORTED_COUNTRIES,
-  EXCHANGE_RATES,
-} from "@/lib/utils/plan-mapping";
 
 const APP_NAMES: Record<string, string> = {
   mark8ly: "Mark8ly",
@@ -368,55 +351,6 @@ function CountryDefaultsTable({ items, onEdit, onDelete, onToggleActive }: Table
 }
 
 // Complex types — table with link to detail page
-
-function PaymentPlansTable({ items, onDelete, onToggleActive, slug }: TableProps<PaymentPlan> & { slug: string }) {
-  const router = useRouter();
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Price</TableHead>
-          <TableHead>Cycle</TableHead>
-          <TableHead>Features</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="w-10"></TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.map((plan) => (
-          <TableRow key={plan.id}>
-            <TableCell>
-              <button
-                onClick={() => router.push(`/admin/apps/${slug}/onboarding/payment-plans/${plan.id}`)}
-                className="text-left font-medium hover:underline"
-              >
-                {plan.name}
-              </button>
-              {plan.tagline && <p className="text-sm text-muted-foreground">{plan.tagline}</p>}
-            </TableCell>
-            <TableCell>{plan.currency} {plan.price}</TableCell>
-            <TableCell><Badge variant="secondary">{plan.billingCycle}</Badge></TableCell>
-            <TableCell className="text-muted-foreground">{plan.features?.length || 0}</TableCell>
-            <TableCell>
-              <Badge variant={plan.active ? "success" : "secondary"}>
-                {plan.active ? "Active" : "Inactive"}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <ActionMenu
-                item={plan}
-                onEdit={() => router.push(`/admin/apps/${slug}/onboarding/payment-plans/${plan.id}`)}
-                onDelete={onDelete}
-                onToggleActive={onToggleActive}
-              />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-}
 
 function IntegrationsTable({ items, onDelete, onToggleActive, slug }: TableProps<Integration> & { slug: string }) {
   const router = useRouter();
@@ -792,155 +726,7 @@ function CountryDefaultFormFields({ form, setForm }: { form: any; setForm: (f: a
 // Simple types that use inline modal editing
 const SIMPLE_TYPES: ContentType[] = ["faqs", "features", "testimonials", "trust-badges", "contacts", "country-defaults"];
 // Complex types that link to detail pages
-const COMPLEX_TYPES: ContentType[] = ["payment-plans", "integrations", "guides", "presentation-slides"];
-
-// ─── Import from Billing Section ─────────────────────────────────────────────
-
-function ImportFromBillingSection({
-  paymentPlans,
-  onImported,
-  slug,
-}: {
-  paymentPlans: PaymentPlan[];
-  onImported: () => void;
-  slug: string;
-}) {
-  const { data: subPlans, isLoading } = usePlans();
-  const [importingId, setImportingId] = useState<string | null>(null);
-
-  const sortedPlans = subPlans
-    ? [...subPlans].sort((a, b) => a.sortOrder - b.sortOrder)
-    : [];
-
-  function isImported(sub: SubscriptionPlan): boolean {
-    return paymentPlans.some((pp) => pp.slug === sub.name);
-  }
-
-  async function handleImport(sub: SubscriptionPlan) {
-    setImportingId(sub.id);
-    try {
-      // 1. Create payment plan
-      const mapped = subscriptionToPaymentPlan(sub);
-      const { data: result, error: createErr } = await createOnboardingItem("payment-plans", mapped);
-      if (createErr || !result) {
-        toast.error(createErr || "Failed to create payment plan");
-        return;
-      }
-
-      const newPlanId = (result as { data: PaymentPlan }).data?.id;
-      if (!newPlanId) {
-        toast.error("Failed to get new plan ID");
-        return;
-      }
-
-      // 2. Create features
-      const featureTexts = subscriptionFeatureTexts(sub);
-      for (let i = 0; i < featureTexts.length; i++) {
-        await apiFetch(`/api/onboarding-content/payment-plans/${newPlanId}/features`, {
-          method: "POST",
-          body: JSON.stringify({ feature: featureTexts[i], sortOrder: i }),
-        });
-      }
-
-      // 3. Create regional pricing for non-AUD countries
-      for (const country of SUPPORTED_COUNTRIES) {
-        if (country.currency === "AUD") continue;
-        const baseAud = sub.monthlyPriceCents / 100;
-        const regionalPrice = calculateRegionalPrice(baseAud, country.currency);
-        if (regionalPrice > 0) {
-          await apiFetch(`/api/onboarding-content/payment-plans/${newPlanId}/regional-pricing`, {
-            method: "POST",
-            body: JSON.stringify({
-              countryCode: country.code,
-              price: regionalPrice.toFixed(2),
-              currency: country.currency,
-            }),
-          });
-        }
-      }
-
-      toast.success(`Imported "${sub.displayName}" with features and regional pricing`);
-      onImported();
-    } catch {
-      toast.error("Failed to import plan");
-    } finally {
-      setImportingId(null);
-    }
-  }
-
-  if (isLoading || sortedPlans.length === 0) return null;
-
-  return (
-    <Card className="mb-4">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="text-sm font-semibold">Import from Billing Plans</h3>
-            <p className="text-xs text-muted-foreground">
-              Import subscription plans as marketing content for the pricing page.
-            </p>
-          </div>
-          <Link
-            href={`/admin/apps/${slug}/billing`}
-            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            Manage Billing Plans
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
-
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-          {sortedPlans.map((sub) => {
-            const imported = isImported(sub);
-            const importing = importingId === sub.id;
-            const featureCount = Object.values(sub.features || {}).filter(Boolean).length;
-            const price = sub.monthlyPriceCents === 0
-              ? "Free"
-              : `${EXCHANGE_RATES.AUD.symbol}${(sub.monthlyPriceCents / 100).toFixed(0)}/mo`;
-
-            return (
-              <div
-                key={sub.id}
-                className="rounded-lg border p-3 space-y-2"
-              >
-                <div>
-                  <p className="text-sm font-medium">{sub.displayName}</p>
-                  <p className="text-xs text-muted-foreground">{price}</p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {featureCount + (sub.maxProducts !== 0 ? 1 : 0) + (sub.maxUsers !== 0 ? 1 : 0) + (sub.maxStorageMb !== 0 ? 1 : 0)} features
-                </p>
-                {imported ? (
-                  <Badge variant="secondary" className="text-xs w-full justify-center">
-                    <Check className="mr-1 h-3 w-3" />
-                    Imported
-                  </Badge>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full text-xs h-7"
-                    onClick={() => handleImport(sub)}
-                    disabled={importing || importingId !== null}
-                  >
-                    {importing ? (
-                      <>
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        Importing...
-                      </>
-                    ) : (
-                      "Import"
-                    )}
-                  </Button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+const COMPLEX_TYPES: ContentType[] = ["integrations", "guides", "presentation-slides"];
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
@@ -1045,9 +831,6 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
     const doCreate = async () => {
       let defaults = {};
       switch (activeTab) {
-        case "payment-plans":
-          defaults = { name: "New Plan", slug: "new-plan", price: "0", billingCycle: "monthly" };
-          break;
         case "integrations":
           defaults = { name: "New Integration", category: "other" };
           break;
@@ -1063,8 +846,7 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newItem = (result as any)?.data;
       if (!newItem?.id) { mutate(); return; }
-      const typeSlug = activeTab === "payment-plans" ? "payment-plans"
-        : activeTab === "presentation-slides" ? "slides"
+      const typeSlug = activeTab === "presentation-slides" ? "slides"
         : activeTab;
       router.push(`/admin/apps/${slug}/onboarding/${typeSlug}/${newItem.id}`);
     };
@@ -1101,7 +883,6 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
       case "trust-badges": return <TrustBadgesTable {...tableProps} />;
       case "contacts": return <ContactsTable {...tableProps} />;
       case "country-defaults": return <CountryDefaultsTable {...tableProps} />;
-      case "payment-plans": return <PaymentPlansTable {...tableProps} slug={slug} />;
       case "integrations": return <IntegrationsTable {...tableProps} slug={slug} />;
       case "guides": return <GuidesTable {...tableProps} slug={slug} />;
       case "presentation-slides": return <SlidesTable {...tableProps} slug={slug} />;
@@ -1168,14 +949,6 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
           {/* Tab content — all share the same loading/error/table pattern */}
           {CONTENT_TYPES.map((ct) => (
             <TabsContent key={ct.key} value={ct.key}>
-              {ct.key === "payment-plans" && !isLoading && !error && (
-                <ImportFromBillingSection
-                  paymentPlans={filteredItems as PaymentPlan[]}
-                  onImported={() => mutate()}
-                  slug={slug}
-                />
-              )}
-
               {isLoading ? (
                 <TableSkeleton columns={5} rows={5} />
               ) : error ? (

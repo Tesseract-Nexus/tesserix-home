@@ -23,6 +23,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Globe,
 } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,19 @@ import {
   type ExpiringTrial,
   type SubscriptionInvoice,
 } from "@/lib/api/subscriptions";
+import { toast } from "sonner";
+import {
+  createOnboardingItem,
+  deleteOnboardingItem,
+  type PaymentPlan,
+} from "@/lib/api/onboarding-content";
+import { apiFetch } from "@/lib/api/use-api";
+import {
+  subscriptionToPaymentPlan,
+  subscriptionFeatureTexts,
+  calculateRegionalPrice,
+  SUPPORTED_COUNTRIES,
+} from "@/lib/utils/plan-mapping";
 
 const APP_NAMES: Record<string, string> = {
   mark8ly: "Mark8ly",
@@ -1150,6 +1164,7 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingPlan, setDeletingPlan] = useState<SubscriptionPlan | null>(null);
+  const [syncingPricing, setSyncingPricing] = useState(false);
 
   async function handleSyncToStripe() {
     setSyncing(true);
@@ -1157,6 +1172,68 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
     setSyncing(false);
     if (!result.error) {
       mutate();
+    }
+  }
+
+  async function handleSyncToPricingPage() {
+    if (!plans || plans.length === 0) return;
+    setSyncingPricing(true);
+    try {
+      // Fetch existing payment plans
+      const { data: existing } = await apiFetch<{ data: PaymentPlan[] }>("/api/onboarding-content/payment-plans");
+      const existingPlans = existing?.data ?? [];
+
+      // Delete all existing payment plans (cascades to features + regional pricing)
+      for (const pp of existingPlans) {
+        await deleteOnboardingItem("payment-plans", pp.id);
+      }
+
+      // Create new payment plans from active subscription plans
+      const activePlans = plans.filter((p) => p.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+      let created = 0;
+
+      for (const sub of activePlans) {
+        const mapped = subscriptionToPaymentPlan(sub);
+        const { data: result, error: createErr } = await createOnboardingItem("payment-plans", mapped);
+        if (createErr || !result) continue;
+
+        const newPlanId = (result as { data: PaymentPlan }).data?.id;
+        if (!newPlanId) continue;
+
+        // Create features
+        const featureTexts = subscriptionFeatureTexts(sub);
+        for (let i = 0; i < featureTexts.length; i++) {
+          await apiFetch(`/api/onboarding-content/payment-plans/${newPlanId}/features`, {
+            method: "POST",
+            body: JSON.stringify({ feature: featureTexts[i], sortOrder: i }),
+          });
+        }
+
+        // Create regional pricing for non-AUD countries
+        for (const country of SUPPORTED_COUNTRIES) {
+          if (country.currency === "AUD") continue;
+          const baseAud = sub.monthlyPriceCents / 100;
+          const regionalPrice = calculateRegionalPrice(baseAud, country.currency);
+          if (regionalPrice > 0) {
+            await apiFetch(`/api/onboarding-content/payment-plans/${newPlanId}/regional-pricing`, {
+              method: "POST",
+              body: JSON.stringify({
+                countryCode: country.code,
+                price: regionalPrice.toFixed(2),
+                currency: country.currency,
+              }),
+            });
+          }
+        }
+
+        created++;
+      }
+
+      toast.success(`Synced ${created} plans to the pricing page`);
+    } catch {
+      toast.error("Failed to sync plans to pricing page");
+    } finally {
+      setSyncingPricing(false);
     }
   }
 
@@ -1221,6 +1298,15 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                onClick={handleSyncToPricingPage}
+                disabled={syncingPricing || !plans?.length}
+                variant="outline"
+                size="sm"
+              >
+                <Globe className={`mr-1.5 h-3.5 w-3.5 ${syncingPricing ? "animate-spin" : ""}`} />
+                {syncingPricing ? "Syncing..." : "Sync to Pricing Page"}
+              </Button>
               <Button
                 onClick={handleSyncToStripe}
                 disabled={syncing}

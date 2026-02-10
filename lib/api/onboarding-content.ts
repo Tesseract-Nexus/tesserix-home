@@ -188,7 +188,7 @@ export const CONTENT_TYPES: ContentTypeConfig[] = [
   { key: 'features', label: 'Features', shortLabel: 'Features' },
   { key: 'testimonials', label: 'Testimonials', shortLabel: 'Testimonials' },
   { key: 'trust-badges', label: 'Trust Badges', shortLabel: 'Badges' },
-  { key: 'payment-plans', label: 'Payment Plans', shortLabel: 'Plans' },
+
   { key: 'contacts', label: 'Contacts', shortLabel: 'Contacts' },
   { key: 'integrations', label: 'Integrations', shortLabel: 'Integrations' },
   { key: 'guides', label: 'Guides', shortLabel: 'Guides' },
