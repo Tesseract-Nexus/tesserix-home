@@ -1,13 +1,9 @@
 import { NextRequest } from 'next/server';
 import { adminFetch, apiError, proxyResponse } from '@/lib/api/admin-fetch';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = request.nextUrl;
-    const queryString = searchParams.toString();
-    const path = queryString ? `/templates?${queryString}` : '/templates';
-
-    const response = await adminFetch('notification', path);
+    const response = await adminFetch('notification', '/templates');
 
     if (response.status === 401) {
       return apiError('Unauthorized', 401);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from 'react';
 import { useApi, apiFetch } from './use-api';
 import { type TemplateScope, getCategoryValues } from './email-template-categories';
 
@@ -60,9 +61,19 @@ export function useEmailTemplates() {
 }
 
 export function useEmailTemplatesByScope(scope: TemplateScope) {
-  const categories = getCategoryValues(scope);
-  const params = categories.map((c) => `category=${encodeURIComponent(c)}`).join('&');
-  return useApi<EmailTemplate[]>(`/api/email-templates?${params}`);
+  const scopeCategories = useMemo(() => getCategoryValues(scope), [scope]);
+  const result = useApi<EmailTemplate[]>('/api/email-templates');
+
+  // Client-side filter: only show templates whose category belongs to this scope.
+  // Templates without a category are shown in both scopes (uncategorized bucket).
+  const filtered = useMemo(() => {
+    if (!result.data) return null;
+    return result.data.filter(
+      (t) => !t.category || scopeCategories.includes(t.category)
+    );
+  }, [result.data, scopeCategories]);
+
+  return { ...result, data: filtered };
 }
 
 export function useEmailTemplate(id: string | null) {
