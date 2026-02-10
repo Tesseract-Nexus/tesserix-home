@@ -51,7 +51,7 @@ export function AdminSidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center px-6">
         <Link href="/admin/dashboard" className="flex items-center">
-          <Image src="/logo.png" alt="Tesserix" width={94} height={28} />
+          <Image src="/logo.png" alt="Tesserix" width={94} height={28} className="brightness-0 invert" />
           <span className="ml-2 rounded bg-sidebar-accent px-2 py-0.5 text-xs font-medium text-sidebar-accent-foreground">
             Admin
           </span>
