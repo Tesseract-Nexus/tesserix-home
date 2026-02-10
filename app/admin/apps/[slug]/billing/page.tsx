@@ -1179,7 +1179,9 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
     mutate();
   }
 
-  const sortedPlans = plans ? [...plans].sort((a, b) => a.sortOrder - b.sortOrder) : [];
+  const sortedPlans = plans
+    ? [...plans].filter((p) => p.isActive).sort((a, b) => a.sortOrder - b.sortOrder)
+    : [];
 
   return (
     <>
