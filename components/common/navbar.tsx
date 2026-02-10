@@ -191,9 +191,6 @@ export function Navbar() {
           <Button variant="ghost" asChild>
             <Link href="/login">Sign in</Link>
           </Button>
-          <Button asChild>
-            <Link href="/products/mark8ly">Start free trial</Link>
-          </Button>
         </div>
       </nav>
 
@@ -273,11 +270,6 @@ export function Navbar() {
 
           {/* CTA buttons */}
           <div className="pt-6 border-t space-y-3">
-            <Button asChild className="w-full">
-              <Link href="/products/mark8ly" onClick={() => setMobileMenuOpen(false)}>
-                Start free trial
-              </Link>
-            </Button>
             <Button variant="outline" asChild className="w-full">
               <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
                 Sign in

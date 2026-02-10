@@ -50,6 +50,8 @@ const itemVariants = {
   },
 };
 
+const ONBOARDING_URL = process.env.NEXT_PUBLIC_ONBOARDING_SITE_URL || "https://dev-onboarding.tesserix.app";
+
 export function Hero() {
   const prefersReducedMotion = useReducedMotion();
   const heroRef = useRef<HTMLElement>(null);
@@ -109,9 +111,8 @@ export function Hero() {
           >
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               {/* Mark8ly — Featured (spans 2 cols) */}
-              <Link
-                href="/products/mark8ly"
-                className="group relative lg:col-span-2 rounded-2xl border bg-card p-6 sm:p-8 card-hover-lift overflow-hidden"
+              <div
+                className="group relative lg:col-span-2 rounded-2xl border bg-card p-6 sm:p-8 overflow-hidden"
               >
                 {/* Watermark logo */}
                 <div className="pointer-events-none absolute bottom-2 right-4 h-64 w-64 sm:h-72 sm:w-72 opacity-[0.08] transition-opacity duration-300 group-hover:opacity-[0.14]">
@@ -177,21 +178,23 @@ export function Hero() {
                       No credit card required
                     </span>
                     <div>
-                      <Button size="lg" className="group-hover:bg-foreground/90">
-                        Start your free year
-                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      <Button size="lg" asChild>
+                        <a href={ONBOARDING_URL}>
+                          Start your free year
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </a>
                       </Button>
                     </div>
                   </div>
 
                   <p className="mt-3 text-sm text-muted-foreground">
                     Visit{" "}
-                    <span className="font-medium text-foreground underline underline-offset-4">
+                    <a href={ONBOARDING_URL} className="font-medium text-foreground underline underline-offset-4">
                       mark8ly.com
-                    </span>
+                    </a>
                   </p>
                 </div>
-              </Link>
+              </div>
 
               {/* Upcoming products — stacked right column */}
               <div className="flex flex-col gap-4">
