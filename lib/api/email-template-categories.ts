@@ -75,6 +75,20 @@ const platformCategories: CategoryConfig[] = [
       { name: "dashboard_url", description: "Link to admin dashboard", example: "https://home.tesserix.app/admin/dashboard" },
     ],
   },
+  {
+    value: "tenant_onboarding",
+    label: "Tenant Onboarding",
+    description: "Welcome and setup emails sent to new store owners",
+    scope: "platform",
+    variables: [
+      { name: "business_name", description: "Name of the new store/business", example: "Fresh Produce Co" },
+      { name: "admin_url", description: "Admin panel URL for the store", example: "https://fresh-produce-admin.tesserix.app" },
+      { name: "storefront_url", description: "Storefront URL for the store", example: "https://fresh-produce.tesserix.app" },
+      { name: "email", description: "Store owner's email address", example: "owner@example.com" },
+      { name: "tenant_slug", description: "Store identifier/slug", example: "fresh-produce" },
+      { name: "support_email", description: "Platform support email", example: "support@tesserix.app" },
+    ],
+  },
 ];
 
 // ─── Mark8ly categories ─────────────────────────────────────────────────────
