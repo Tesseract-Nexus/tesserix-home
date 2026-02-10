@@ -76,28 +76,32 @@ export function useTickets(filters: TicketFilters = {}) {
 
 /**
  * Hook to fetch a single ticket by ID.
+ * Optionally pass tenantId for cross-tenant platform admin fetches.
  */
-export function useTicket(id: string | null) {
-  return useApi<Ticket>(id ? `/api/tickets/${id}` : null);
+export function useTicket(id: string | null, tenantId?: string | null) {
+  const params = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
+  return useApi<Ticket>(id ? `/api/tickets/${id}${params}` : null);
 }
 
 /**
  * Update ticket status.
+ * Optionally pass tenantId for cross-tenant platform admin updates.
  */
-export async function updateTicketStatus(id: string, status: string) {
+export async function updateTicketStatus(id: string, status: string, tenantId?: string | null) {
   return apiFetch(`/api/tickets/${id}/status`, {
     method: 'PUT',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, ...(tenantId ? { tenantId } : {}) }),
   });
 }
 
 /**
  * Add a comment to a ticket.
+ * Optionally pass tenantId for cross-tenant platform admin comments.
  */
-export async function addTicketComment(id: string, content: string, isInternal = false) {
+export async function addTicketComment(id: string, content: string, isInternal = false, tenantId?: string | null) {
   return apiFetch(`/api/tickets/${id}/comments`, {
     method: 'POST',
-    body: JSON.stringify({ content, isInternal }),
+    body: JSON.stringify({ content, isInternal, ...(tenantId ? { tenantId } : {}) }),
   });
 }
 

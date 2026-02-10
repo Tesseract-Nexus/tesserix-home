@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   RefreshCw,
   AlertTriangle,
@@ -25,6 +25,8 @@ import {
   type Incident,
   type AppGroup,
 } from "@/lib/api/system-health";
+
+type StatusFilter = "all" | ServiceHealth;
 
 function statusBannerStyle(status: OverallStatus) {
   switch (status) {
@@ -92,7 +94,10 @@ function appGroupSummary(services: ServiceSummary[]) {
   const degraded = services.filter((s) => s.status === "degraded").length;
   if (degraded > 0)
     return { label: `${degraded} degraded`, variant: "warning" as const };
-  return { label: `${healthy}/${total} healthy`, variant: "secondary" as const };
+  return {
+    label: `${healthy}/${total} healthy`,
+    variant: "secondary" as const,
+  };
 }
 
 function ServiceRow({ service }: { service: ServiceSummary }) {
@@ -101,7 +106,9 @@ function ServiceRow({ service }: { service: ServiceSummary }) {
       <div className="flex items-center gap-3 min-w-0">
         {healthIcon(service.status)}
         <div className="min-w-0">
-          <p className="font-medium text-sm truncate">{service.displayName}</p>
+          <p className="font-medium text-sm truncate">
+            {service.displayName}
+          </p>
           <p className="text-xs text-muted-foreground">{service.category}</p>
         </div>
       </div>
@@ -199,9 +206,65 @@ function PageSkeleton() {
   );
 }
 
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "healthy", label: "Healthy" },
+  { value: "degraded", label: "Degraded" },
+  { value: "unhealthy", label: "Unhealthy" },
+  { value: "unknown", label: "Unknown" },
+];
+
+const APP_GROUP_FILTERS: { value: AppGroup | "all"; label: string }[] = [
+  { value: "all", label: "All Groups" },
+  { value: "Platform", label: "Platform" },
+  { value: "Mark8ly", label: "Mark8ly" },
+  { value: "Infrastructure", label: "Infrastructure" },
+];
+
+function FilterChip({
+  label,
+  active,
+  count,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  count?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+        active
+          ? "bg-primary text-primary-foreground"
+          : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+      }`}
+    >
+      {label}
+      {count !== undefined && (
+        <span
+          className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs ${
+            active
+              ? "bg-primary-foreground/20 text-primary-foreground"
+              : "bg-background text-muted-foreground"
+          }`}
+        >
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function SystemHealthPage() {
   const { data, isLoading, error, mutate } = useSystemHealth();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [appGroupFilter, setAppGroupFilter] = useState<AppGroup | "all">(
+    "all"
+  );
 
   useEffect(() => {
     intervalRef.current = setInterval(() => mutate(), 30000);
@@ -210,9 +273,46 @@ export default function SystemHealthPage() {
     };
   }, [mutate]);
 
-  const groups = data?.services ? groupServicesByApp(data.services) : null;
+  // Apply filters to services
+  const allServices = data?.services ?? [];
+  const filteredServices = allServices.filter((svc) => {
+    if (statusFilter !== "all" && svc.status !== statusFilter) return false;
+    return true;
+  });
+  const groups = groupServicesByApp(filteredServices);
+
+  // Count services by status for filter chips
+  const statusCounts: Record<StatusFilter, number> = {
+    all: allServices.length,
+    healthy: allServices.filter((s) => s.status === "healthy").length,
+    degraded: allServices.filter((s) => s.status === "degraded").length,
+    unhealthy: allServices.filter((s) => s.status === "unhealthy").length,
+    unknown: allServices.filter((s) => s.status === "unknown").length,
+  };
+
+  // Count services by app group
+  const allGroups = groupServicesByApp(allServices);
+  const groupCounts: Record<AppGroup | "all", number> = {
+    all: filteredServices.length,
+    Platform: appGroupFilter === "all" || appGroupFilter === "Platform"
+      ? groups.Platform.length
+      : allGroups.Platform.length,
+    Mark8ly: appGroupFilter === "all" || appGroupFilter === "Mark8ly"
+      ? groups.Mark8ly.length
+      : allGroups.Mark8ly.length,
+    Infrastructure: appGroupFilter === "all" || appGroupFilter === "Infrastructure"
+      ? groups.Infrastructure.length
+      : allGroups.Infrastructure.length,
+  };
+
   const activeIncidents =
     data?.incidents?.filter((i) => i.status !== "resolved") ?? [];
+
+  // Determine which app groups to show
+  const visibleGroups: AppGroup[] =
+    appGroupFilter === "all"
+      ? (["Platform", "Mark8ly", "Infrastructure"] as AppGroup[])
+      : [appGroupFilter];
 
   return (
     <>
@@ -356,18 +456,81 @@ export default function SystemHealthPage() {
               </div>
             )}
 
-            {/* Services by app */}
-            {groups && (
-              <div className="space-y-4">
+            {/* Filter chips + Services */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Services</h3>
-                <AppGroupSection app="Platform" services={groups.Platform} />
-                <AppGroupSection app="Mark8ly" services={groups.Mark8ly} />
-                <AppGroupSection
-                  app="Infrastructure"
-                  services={groups.Infrastructure}
-                />
+                <p className="text-sm text-muted-foreground">
+                  {filteredServices.length} of {allServices.length} services
+                </p>
               </div>
-            )}
+
+              {/* Status filter chips */}
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-sm font-medium text-muted-foreground self-center mr-1">
+                    Status:
+                  </span>
+                  {STATUS_FILTERS.map((f) =>
+                    // Hide "unknown" chip if no unknown services
+                    f.value === "unknown" && statusCounts.unknown === 0 ? null : (
+                      <FilterChip
+                        key={f.value}
+                        label={f.label}
+                        active={statusFilter === f.value}
+                        count={statusCounts[f.value]}
+                        onClick={() => setStatusFilter(f.value)}
+                      />
+                    )
+                  )}
+                </div>
+
+                {/* App group filter chips */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-sm font-medium text-muted-foreground self-center mr-1">
+                    Group:
+                  </span>
+                  {APP_GROUP_FILTERS.map((f) => (
+                    <FilterChip
+                      key={f.value}
+                      label={f.label}
+                      active={appGroupFilter === f.value}
+                      count={groupCounts[f.value]}
+                      onClick={() => setAppGroupFilter(f.value)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {filteredServices.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <p className="text-muted-foreground">
+                      No services match the selected filters.
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => {
+                        setStatusFilter("all");
+                        setAppGroupFilter("all");
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                visibleGroups.map((app) => (
+                  <AppGroupSection
+                    key={app}
+                    app={app}
+                    services={groups[app]}
+                  />
+                ))
+              )}
+            </div>
 
             {/* No incidents message */}
             {activeIncidents.length === 0 && (

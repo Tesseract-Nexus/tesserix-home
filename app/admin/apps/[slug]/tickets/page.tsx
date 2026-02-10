@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { Search, Filter, MoreHorizontal, Clock, ChevronRight } from "lucide-react";
+import { Search, Filter, MoreHorizontal, Clock, ChevronRight, Building2 } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,6 +187,7 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
                   <TableRow>
                     <TableHead>ID</TableHead>
                     <TableHead>Subject</TableHead>
+                    <TableHead>Tenant</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
@@ -202,7 +203,7 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
                       </TableCell>
                       <TableCell>
                         <Link
-                          href={`/admin/apps/${slug}/tickets/${ticket.id}`}
+                          href={`/admin/apps/${slug}/tickets/${ticket.id}${ticket.tenant_id ? `?tenantId=${ticket.tenant_id}` : ''}`}
                           className="font-medium hover:underline"
                         >
                           {ticket.title}
@@ -211,6 +212,22 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
                           <p className="text-xs text-muted-foreground mt-0.5">
                             by {ticket.created_by_name}
                           </p>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {ticket.tenant_name ? (
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <Link
+                              href={`/admin/apps/${slug}/${ticket.tenant_id}`}
+                              className="text-sm hover:underline truncate max-w-[140px]"
+                              title={ticket.tenant_name}
+                            >
+                              {ticket.tenant_name}
+                            </Link>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">&mdash;</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -248,7 +265,7 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/admin/apps/${slug}/tickets/${ticket.id}`}>
+                              <Link href={`/admin/apps/${slug}/tickets/${ticket.id}${ticket.tenant_id ? `?tenantId=${ticket.tenant_id}` : ''}`}>
                                 View Details
                               </Link>
                             </DropdownMenuItem>

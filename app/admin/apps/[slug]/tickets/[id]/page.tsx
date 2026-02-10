@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Clock, User, Building2, Send } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
@@ -97,14 +98,20 @@ export default function AppTicketDetailPage({
   params: Promise<{ slug: string; id: string }>;
 }) {
   const { slug, id } = use(params);
-  const { data: ticket, isLoading, error, mutate } = useTicket(id);
+  const searchParams = useSearchParams();
+  const tenantId = searchParams.get("tenantId");
+
+  const { data: ticket, isLoading, error, mutate } = useTicket(id, tenantId);
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const currentStatus = ticket?.status?.toLowerCase() || "open";
 
+  // Use tenantId from URL param, fallback to ticket data
+  const effectiveTenantId = tenantId || ticket?.tenant_id || null;
+
   async function handleStatusChange(newStatus: string) {
-    const { error } = await updateTicketStatus(id, newStatus);
+    const { error } = await updateTicketStatus(id, newStatus, effectiveTenantId);
     if (!error) {
       mutate();
     }
@@ -114,7 +121,7 @@ export default function AppTicketDetailPage({
     if (!newComment.trim() || submitting) return;
 
     setSubmitting(true);
-    const { error } = await addTicketComment(id, newComment.trim());
+    const { error } = await addTicketComment(id, newComment.trim(), false, effectiveTenantId);
     setSubmitting(false);
 
     if (!error) {
@@ -283,16 +290,16 @@ export default function AppTicketDetailPage({
                   <CardTitle className="text-base">Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {ticket.tenant_id && (
+                  {(ticket.tenant_id || effectiveTenantId) && (
                     <div className="flex items-center gap-3">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">Tenant</p>
                         <Link
-                          href={`/admin/apps/${slug}/${ticket.tenant_id}`}
+                          href={`/admin/apps/${slug}/${ticket.tenant_id || effectiveTenantId}`}
                           className="font-medium text-primary hover:underline"
                         >
-                          {ticket.tenant_name || ticket.tenant_id}
+                          {ticket.tenant_name || ticket.tenant_id || effectiveTenantId}
                         </Link>
                       </div>
                     </div>
