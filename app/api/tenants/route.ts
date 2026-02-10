@@ -32,13 +32,20 @@ export async function GET(request: NextRequest) {
       id: t.tenant_id,
       name: t.name,
       slug: t.slug,
+      subdomain: t.subdomain,
+      custom_domain: t.custom_domain,
+      use_custom_domain: t.use_custom_domain,
       display_name: t.display_name,
       status: t.status,
+      email: t.email,
+      plan: t.plan,
+      industry: t.industry,
       admin_url: t.admin_url,
       storefront_url: t.storefront_url,
       business_model: t.business_model,
       primary_color: t.primary_color,
       created_at: t.created_at,
+      updated_at: t.updated_at,
     }));
 
     return NextResponse.json({
