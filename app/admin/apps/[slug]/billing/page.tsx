@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use, useCallback } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import {
   RefreshCw,
@@ -279,20 +279,19 @@ function PlanFormDialog({
   onSuccess: () => void;
 }) {
   const isEditing = !!plan;
-  const [form, setForm] = useState<PlanFormData>(
-    plan ? planToFormData(plan) : getDefaultFormData()
-  );
+  const [form, setForm] = useState<PlanFormData>(getDefaultFormData());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset form when plan changes
-  const resetForm = useCallback(() => {
-    setForm(plan ? planToFormData(plan) : getDefaultFormData());
-    setError(null);
-  }, [plan]);
+  // Reset form when dialog opens or plan changes
+  useEffect(() => {
+    if (open) {
+      setForm(plan ? planToFormData(plan) : getDefaultFormData());
+      setError(null);
+    }
+  }, [open, plan]);
 
   function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen) resetForm();
     onOpenChange(nextOpen);
   }
 
