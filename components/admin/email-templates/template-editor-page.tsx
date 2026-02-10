@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Trash2, Send, Lock, ChevronDown } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Send, Lock, ChevronDown, Eye } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/admin/error-state";
 import { VariablesPanel } from "./variables-panel";
+import { TemplatePreviewDialog } from "./template-preview-dialog";
 import {
   useEmailTemplate,
   createTemplate,
@@ -72,6 +73,7 @@ export function TemplateEditorPage({ scope, basePath, templateId }: TemplateEdit
   const [deleting, setDeleting] = useState(false);
   const [sending, setSending] = useState(false);
   const [variablesExpanded, setVariablesExpanded] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const isSystem = template?.is_system;
   const categoryConfig = getCategoryConfig(category);
@@ -179,6 +181,14 @@ export function TemplateEditorPage({ scope, basePath, templateId }: TemplateEdit
             Back to Templates
           </Link>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPreviewOpen(true)}
+              disabled={!htmlBody}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Preview
+            </Button>
             {isSystem && (
               <Badge variant="secondary" className="gap-1">
                 <Lock className="h-3 w-3" />
@@ -364,6 +374,21 @@ export function TemplateEditorPage({ scope, basePath, templateId }: TemplateEdit
           </div>
         </div>
       </main>
+
+      <TemplatePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        template={{
+          id: templateId,
+          name,
+          subject,
+          type,
+          category,
+          status,
+          html_body: htmlBody,
+          variables,
+        }}
+      />
     </>
   );
 }
