@@ -187,12 +187,6 @@ export function Hero() {
                     </div>
                   </div>
 
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    Visit{" "}
-                    <a href={ONBOARDING_URL} className="font-medium text-foreground underline underline-offset-4">
-                      mark8ly.com
-                    </a>
-                  </p>
                 </div>
               </div>
 
