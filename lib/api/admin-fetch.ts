@@ -108,15 +108,11 @@ async function getAccessToken(sessionCookieValue: string): Promise<TokenResponse
     });
 
     if (!response.ok) {
-      console.error(`[getAccessToken] /internal/get-token returned ${response.status}`);
       return null;
     }
 
-    const data = await response.json();
-    console.log(`[getAccessToken] Token exchange OK, user_id=${data.user_id}`);
-    return data;
-  } catch (err) {
-    console.error(`[getAccessToken] Error:`, err);
+    return response.json();
+  } catch {
     return null;
   }
 }
@@ -269,7 +265,6 @@ export async function proxyResponse(response: Response): Promise<NextResponse> {
   try {
     data = JSON.parse(text);
   } catch {
-    console.error(`[proxyResponse] Failed to parse JSON (status ${response.status}), body preview: ${text.slice(0, 200)}`);
     return NextResponse.json({ error: 'Invalid response from backend' }, { status: 502 });
   }
   return NextResponse.json(data, { status: response.status });

@@ -16,13 +16,37 @@ export async function GET(request: NextRequest) {
 
     // Platform admin fetches all tenants via membership endpoint
     const response = await adminFetch('tenant', `/api/v1/users/me/tenants?${params}`);
-    console.log(`[Tenants API] GET /api/v1/users/me/tenants → status ${response.status}`);
 
     if (response.status === 401) {
       return apiError('Unauthorized', 401);
     }
 
-    return proxyResponse(response);
+    // Normalize tenant-service response: { data: { count, tenants: [...] } }
+    // into the shape the frontend expects: { data: Tenant[], total, page, pageSize }
+    const body = await response.json();
+    const nested = body?.data;
+    const tenants = Array.isArray(nested?.tenants) ? nested.tenants : [];
+
+    // Map tenant_id → id for frontend consistency
+    const normalized = tenants.map((t: Record<string, unknown>) => ({
+      id: t.tenant_id,
+      name: t.name,
+      slug: t.slug,
+      display_name: t.display_name,
+      status: t.status,
+      admin_url: t.admin_url,
+      storefront_url: t.storefront_url,
+      business_model: t.business_model,
+      primary_color: t.primary_color,
+      created_at: t.created_at,
+    }));
+
+    return NextResponse.json({
+      data: normalized,
+      total: nested?.count ?? normalized.length,
+      page: parseInt(page),
+      pageSize: parseInt(limit),
+    });
   } catch (error) {
     console.error('[Tenants API] Error:', error);
     return apiError('Failed to fetch tenants');

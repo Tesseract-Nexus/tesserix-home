@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
     const tenantIdFilter = searchParams.get('tenantId');
 
     const session = await getSessionContext();
-    console.log(`[Tickets API] getSessionContext → ${session ? `userId=${session.userId}, tenantId=${session.tenantId || 'none'}` : 'null (unauthorized)'}`);
     if (!session) {
       return apiError('Unauthorized', 401);
     }
@@ -44,34 +43,37 @@ export async function GET(request: NextRequest) {
       return apiError('Failed to fetch tenants', tenantsResponse.status);
     }
 
-    const tenantsData = await tenantsResponse.json();
-    const tenants = tenantsData.data || tenantsData || [];
-    console.log(`[Tickets API] Fetched ${Array.isArray(tenants) ? tenants.length : 0} tenants for ticket aggregation`);
-
-    if (!Array.isArray(tenants) || tenants.length === 0) {
+    const tenantsBody = await tenantsResponse.json();
+    // Tenant-service returns { data: { count, tenants: [...] } } — extract the array
+    const tenantsNested = tenantsBody?.data;
+    const tenants = Array.isArray(tenantsNested?.tenants)
+      ? tenantsNested.tenants
+      : Array.isArray(tenantsNested) ? tenantsNested : [];
+    if (tenants.length === 0) {
       return NextResponse.json({ data: [], total: 0, page: 1, pageSize: 20 });
     }
 
     // Fetch tickets from each tenant in parallel
-    const ticketPromises = tenants.map(async (tenant: { id: string; name?: string; slug?: string }) => {
+    const ticketPromises = tenants.map(async (tenant: { tenant_id?: string; id?: string; name?: string; slug?: string }) => {
+      const tid = tenant.tenant_id || tenant.id || '';
       try {
         const params = new URLSearchParams({ page: '1', limit: '100' });
         if (status && status !== 'all') params.set('status', status.toUpperCase());
         if (priority && priority !== 'all') params.set('priority', priority.toUpperCase());
 
         const response = await adminFetch('tickets', `/tickets?${params}`, {
-          tenantId: tenant.id,
+          tenantId: tid,
         });
 
         if (!response.ok) return [];
 
         const data = await response.json();
-        const tickets = data.data || [];
+        const tickets = Array.isArray(data.data) ? data.data : [];
         // Attach tenant info to each ticket for display
         return tickets.map((t: Record<string, unknown>) => ({
           ...t,
-          tenant_name: tenant.name || tenant.slug || tenant.id,
-          tenant_id: tenant.id,
+          tenant_name: tenant.name || tenant.slug || tid,
+          tenant_id: tid,
         }));
       } catch {
         return [];
