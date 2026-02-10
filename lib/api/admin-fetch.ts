@@ -101,6 +101,7 @@ export async function adminFetch(
   const sessionCookie = cookieStore.get('bff_home_session');
 
   if (!sessionCookie) {
+    console.error(`[adminFetch] NO bff_home_session cookie found for ${service}${path}`);
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -111,6 +112,7 @@ export async function adminFetch(
   const tokenData = await getAccessToken(sessionCookie.value);
 
   if (!tokenData) {
+    console.error(`[adminFetch] getAccessToken returned null for ${service}${path}`);
     return new Response(JSON.stringify({ error: 'Session expired' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -119,6 +121,7 @@ export async function adminFetch(
 
   const baseUrl = getServiceBaseUrl(service);
   const url = `${baseUrl}${path}`;
+  console.log(`[adminFetch] ${service}${path} → ${url} (token user: ${tokenData.user_id})`);
 
   const { tenantId, headers: extraHeaders, ...fetchOptions } = options;
 
@@ -135,12 +138,17 @@ export async function adminFetch(
     headers['X-Tenant-ID'] = tokenData.tenant_id;
   }
 
-  const response = await fetch(url, {
-    ...fetchOptions,
-    headers,
-  });
-
-  return response;
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      headers,
+    });
+    console.log(`[adminFetch] ${service}${path} → status ${response.status}`);
+    return response;
+  } catch (fetchError) {
+    console.error(`[adminFetch] fetch error for ${service}${path}:`, fetchError);
+    throw fetchError;
+  }
 }
 
 /**
