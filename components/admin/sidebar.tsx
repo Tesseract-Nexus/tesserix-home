@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Ticket,
-  FileText,
   CreditCard,
   ScrollText,
   Activity,
@@ -51,7 +50,6 @@ const mark8lyNav: NavItem[] = [
   { name: "Overview", href: "/admin/apps/mark8ly", icon: LayoutDashboard },
   { name: "Tenants", href: "/admin/apps/mark8ly/tenants", icon: Users },
   { name: "Tickets", href: "/admin/apps/mark8ly/tickets", icon: Ticket },
-  { name: "Content", href: "/admin/apps/mark8ly/content", icon: FileText },
   { name: "Onboarding", href: "/admin/apps/mark8ly/onboarding", icon: ClipboardList },
   { name: "Billing", href: "/admin/apps/mark8ly/billing", icon: CreditCard },
   { name: "Feature Flags", href: "/admin/apps/mark8ly/feature-flags", icon: ToggleLeft },

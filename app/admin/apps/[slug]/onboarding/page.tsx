@@ -11,6 +11,7 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { AdminHeader } from "@/components/admin/header";
@@ -68,6 +69,8 @@ import {
 const APP_NAMES: Record<string, string> = {
   mark8ly: "Mark8ly",
 };
+
+const ONBOARDING_SITE_URL = process.env.NEXT_PUBLIC_ONBOARDING_SITE_URL || "https://dev-onboarding.tesserix.app";
 
 function useDebounce(value: string, delay: number) {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -933,14 +936,22 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
       />
 
       <main className="p-6 space-y-6">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Link href={`/admin/apps/${slug}`} className="hover:text-foreground transition-colors">
-            {appName}
-          </Link>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">Onboarding</span>
-        </nav>
+        {/* Breadcrumb + Preview */}
+        <div className="flex items-center justify-between">
+          <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+            <Link href={`/admin/apps/${slug}`} className="hover:text-foreground transition-colors">
+              {appName}
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground font-medium">Onboarding</span>
+          </nav>
+          <Button variant="outline" size="sm" asChild>
+            <a href={ONBOARDING_SITE_URL} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Preview Site
+            </a>
+          </Button>
+        </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as ContentType); setSearch(""); }}>
