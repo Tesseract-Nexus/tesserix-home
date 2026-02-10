@@ -107,8 +107,11 @@ export function TemplatePreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[85vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+      <DialogContent
+        className="max-w-2xl p-0 gap-0 overflow-hidden"
+        style={{ display: "flex", flexDirection: "column", height: "85vh" }}
+      >
+        <DialogHeader className="px-6 pt-6 pb-4 border-b" style={{ flexShrink: 0 }}>
           <div className="flex items-center gap-2">
             <DialogTitle className="text-base">{template.name}</DialogTitle>
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
@@ -119,13 +122,16 @@ export function TemplatePreviewDialog({
             {template.subject || "No subject"}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 min-h-0 bg-muted/30">
+        <div
+          className="bg-muted/30"
+          style={{ flex: 1, minHeight: 0, overflow: "hidden" }}
+        >
           {previewHtml ? (
             <iframe
               title="Email preview"
               srcDoc={previewHtml}
               sandbox=""
-              className="w-full h-full border-0"
+              style={{ width: "100%", height: "100%", border: "none", display: "block" }}
             />
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
