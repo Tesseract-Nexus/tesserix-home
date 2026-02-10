@@ -189,7 +189,7 @@ export function Navbar() {
         {/* Desktop CTA */}
         <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4">
           <Button variant="ghost" asChild>
-            <Link href="/api/auth/login?returnTo=/admin/dashboard">Sign in</Link>
+            <Link href="/login">Sign in</Link>
           </Button>
           <Button asChild>
             <Link href="/products/mark8ly">Start free trial</Link>
@@ -279,7 +279,7 @@ export function Navbar() {
               </Link>
             </Button>
             <Button variant="outline" asChild className="w-full">
-              <Link href="/api/auth/login?returnTo=/admin/dashboard" onClick={() => setMobileMenuOpen(false)}>
+              <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
                 Sign in
               </Link>
             </Button>
