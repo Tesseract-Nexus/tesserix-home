@@ -199,17 +199,14 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Customer login note */}
+            {/* Home portal link */}
             <div className="mt-6 pt-6 border-t text-center">
               <p className="text-sm text-muted-foreground">
-                Are you a Tesserix customer?{" "}
                 <a
-                  href="https://mark8ly.com/login"
+                  href="https://mark8ly.com"
                   className="text-foreground hover:underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
                 >
-                  Go to customer portal →
+                  Go to home portal →
                 </a>
               </p>
             </div>
