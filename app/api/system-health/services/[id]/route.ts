@@ -1,24 +1,27 @@
-import { NextRequest } from 'next/server';
-import { adminFetch, apiError, proxyResponse } from '@/lib/api/admin-fetch';
+import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const STATUS_DASHBOARD_URL =
+  process.env.STATUS_DASHBOARD_SERVICE_URL || 'http://localhost:8097/api/v1';
+
+/** @deprecated Use GET /api/system-health instead */
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const cookieStore = await cookies();
+    if (!cookieStore.get('bff_home_session')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await params;
-    const response = await adminFetch('status-dashboard', `/services/${id}`);
-
-    if (response.status === 401) {
-      return apiError('Unauthorized', 401);
+    const response = await fetch(`${STATUS_DASHBOARD_URL}/services/${id}`, {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!response.ok) {
+      return NextResponse.json({ error: 'Status service error' }, { status: 502 });
     }
-    if (response.status === 404) {
-      return apiError('Service not found', 404);
-    }
-
-    return proxyResponse(response);
-  } catch (error) {
-    console.error('[System Health Service Detail API] Error:', error);
-    return apiError('Failed to fetch service');
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json({ error: 'Status service unreachable' }, { status: 503 });
   }
 }

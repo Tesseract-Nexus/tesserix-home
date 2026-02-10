@@ -2,64 +2,91 @@
 
 import { useApi } from './use-api';
 
+// --- Backend response types (match Go status-dashboard-service) ---
+
 export type OverallStatus = 'operational' | 'degraded' | 'outage';
 export type ServiceHealth = 'healthy' | 'unhealthy' | 'degraded' | 'unknown';
 
-export interface SystemStatus {
-  status: OverallStatus;
-  message: string;
-  updated_at: string;
-  services_total: number;
-  services_healthy: number;
-  services_unhealthy: number;
-  services_degraded: number;
-}
-
-export interface MonitoredService {
+export interface ServiceSummary {
   id: string;
   name: string;
-  description?: string;
-  health: ServiceHealth;
-  latency_ms: number;
-  uptime_percentage: number;
-  last_checked: string;
-  url?: string;
-  metadata?: Record<string, unknown>;
+  displayName: string;
+  category: string;
+  status: ServiceHealth;
+  uptime30d: number;
+  slaTarget: number;
+  slaMet: boolean;
+  responseTimeMs: number;
+  lastCheckAt: string;
 }
 
 export interface Incident {
   id: string;
+  serviceId: string;
+  serviceName: string;
   title: string;
-  description: string;
-  status: 'investigating' | 'identified' | 'monitoring' | 'resolved';
-  severity: 'minor' | 'major' | 'critical';
-  affected_services: string[];
-  started_at: string;
-  resolved_at?: string;
-  updates?: IncidentUpdate[];
+  status: 'investigating' | 'monitoring' | 'resolved';
+  startedAt: string;
+  resolvedAt?: string;
 }
 
-export interface IncidentUpdate {
-  id: string;
-  status: string;
-  message: string;
-  created_at: string;
+export interface OverallStats {
+  totalServices: number;
+  healthyServices: number;
+  degradedServices: number;
+  unhealthyServices: number;
+  unknownServices: number;
+  overallUptime: number;
+  avgResponseMs: number;
+  lastUpdated: string;
 }
 
-// Hooks
-
-export function useSystemStatus() {
-  return useApi<SystemStatus>('/api/system-health/status');
+export interface StatusResponse {
+  status: OverallStatus;
+  services: ServiceSummary[];
+  incidents: Incident[];
+  stats: OverallStats;
+  lastUpdated: string;
 }
 
-export function useServices() {
-  return useApi<MonitoredService[]>('/api/system-health/services');
+// --- App grouping ---
+
+export type AppGroup = 'Platform' | 'Mark8ly' | 'Infrastructure';
+
+const CATEGORY_TO_APP: Record<string, AppGroup> = {
+  'Infrastructure': 'Infrastructure',
+  'Identity': 'Platform',
+  'Documentation': 'Infrastructure',
+  'Core': 'Platform',
+  'Commerce': 'Mark8ly',
+  'Customer': 'Mark8ly',
+  'Catalog': 'Mark8ly',
+  'Communication': 'Platform',
+  'Vendor': 'Mark8ly',
+  'Supporting': 'Mark8ly',
+};
+
+export function getAppGroup(category: string): AppGroup {
+  return CATEGORY_TO_APP[category] || 'Infrastructure';
 }
 
-export function useService(id: string | null) {
-  return useApi<MonitoredService>(id ? `/api/system-health/services/${id}` : null);
+export function groupServicesByApp(services: ServiceSummary[]): Record<AppGroup, ServiceSummary[]> {
+  const groups: Record<AppGroup, ServiceSummary[]> = {
+    Platform: [],
+    Mark8ly: [],
+    Infrastructure: [],
+  };
+
+  for (const svc of services) {
+    const app = getAppGroup(svc.category);
+    groups[app].push(svc);
+  }
+
+  return groups;
 }
 
-export function useIncidents() {
-  return useApi<Incident[]>('/api/system-health/incidents');
+// --- Hook ---
+
+export function useSystemHealth() {
+  return useApi<StatusResponse>('/api/system-health');
 }
