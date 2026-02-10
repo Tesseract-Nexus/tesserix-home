@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/admin/error-state";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTenant } from "@/lib/api/tenants";
 import {
   useTenantSubscription,
@@ -98,12 +99,17 @@ function TenantBillingTab({ tenantId }: { tenantId: string }) {
   const { data: subscription, isLoading: subLoading, error: subError, mutate: mutateSub } = useTenantSubscription(tenantId);
   const { data: invoices, isLoading: invLoading } = useTenantInvoices(tenantId);
   const [actionLoading, setActionLoading] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
-  async function handleCancel() {
-    if (!confirm("Cancel this subscription? It will remain active until the end of the current period.")) return;
+  function handleCancel() {
+    setCancelOpen(true);
+  }
+
+  async function confirmCancel() {
     setActionLoading(true);
     await cancelSubscription(tenantId);
     setActionLoading(false);
+    setCancelOpen(false);
     mutateSub();
   }
 
@@ -328,6 +334,17 @@ function TenantBillingTab({ tenantId }: { tenantId: string }) {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Cancel Subscription"
+        description="Cancel this subscription? It will remain active until the end of the current billing period."
+        confirmLabel="Cancel Subscription"
+        variant="default"
+        onConfirm={confirmCancel}
+        loading={actionLoading}
+      />
     </div>
   );
 }

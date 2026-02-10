@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { Plus, ChevronRight } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/admin/error-state";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TemplateFilters } from "./template-filters";
 import { CategoryAccordion } from "./category-accordion";
 import { NotificationLog } from "./notification-log";
@@ -42,6 +43,8 @@ export function TemplateListPage({
   const [statusFilter, setStatusFilter] = useState<TemplateStatus | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<string | "all">("all");
   const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const {
     data: templates,
@@ -103,11 +106,18 @@ export function TemplateListPage({
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this template?")) return;
-    await deleteTemplate(id);
-    mutate();
+  function handleDelete(id: string) {
+    setDeleteTarget(id);
   }
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    await deleteTemplate(deleteTarget);
+    setDeleteLoading(false);
+    setDeleteTarget(null);
+    mutate();
+  }, [deleteTarget, mutate]);
 
   return (
     <>
@@ -224,6 +234,17 @@ export function TemplateListPage({
         {/* Notification log tab */}
         {activeTab === "notifications" && <NotificationLog />}
       </main>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="Delete Template"
+        description="Are you sure you want to delete this template? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmDelete}
+        loading={deleteLoading}
+      />
     </>
   );
 }

@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/admin/error-state";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   useOnboardingItem,
   updateOnboardingItem,
@@ -33,6 +34,8 @@ export default function GuideDetailPage({
 
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Guide> | null>(null);
+  const [deleteStepTarget, setDeleteStepTarget] = useState<string | null>(null);
+  const [deleteStepLoading, setDeleteStepLoading] = useState(false);
 
   const form = formData ?? guide;
 
@@ -87,14 +90,24 @@ export default function GuideDetailPage({
   );
 
   const handleDeleteStep = useCallback(
-    async (stepId: string) => {
-      if (!confirm("Delete this step?")) return;
-      const { error: err } = await deleteGuideStep(id, stepId);
-      if (err) { toast.error("Failed to delete step"); return; }
+    (stepId: string) => {
+      setDeleteStepTarget(stepId);
+    },
+    []
+  );
+
+  const confirmDeleteStep = useCallback(
+    async () => {
+      if (!deleteStepTarget) return;
+      setDeleteStepLoading(true);
+      const { error: err } = await deleteGuideStep(id, deleteStepTarget);
+      setDeleteStepLoading(false);
+      if (err) { toast.error("Failed to delete step"); setDeleteStepTarget(null); return; }
       toast.success("Step deleted");
+      setDeleteStepTarget(null);
       mutate();
     },
-    [id, mutate]
+    [id, deleteStepTarget, mutate]
   );
 
   if (isLoading) {
@@ -255,6 +268,17 @@ export default function GuideDetailPage({
             </CardContent>
           </Card>
         </div>
+
+        <ConfirmDialog
+          open={!!deleteStepTarget}
+          onOpenChange={(open) => { if (!open) setDeleteStepTarget(null); }}
+          title="Delete Step"
+          description="Are you sure you want to delete this step? This action cannot be undone."
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={confirmDeleteStep}
+          loading={deleteStepLoading}
+        />
       </main>
     </>
   );

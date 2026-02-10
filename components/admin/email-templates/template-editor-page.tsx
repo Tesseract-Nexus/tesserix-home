@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/admin/error-state";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { VariablesPanel } from "./variables-panel";
 import { TemplatePreviewDialog } from "./template-preview-dialog";
 import {
@@ -74,6 +75,7 @@ export function TemplateEditorPage({ scope, basePath, templateId }: TemplateEdit
   const [sending, setSending] = useState(false);
   const [variablesExpanded, setVariablesExpanded] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const isSystem = template?.is_system;
   const categoryConfig = getCategoryConfig(category);
@@ -115,11 +117,15 @@ export function TemplateEditorPage({ scope, basePath, templateId }: TemplateEdit
     }
   }
 
-  async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this template?")) return;
+  function handleDelete() {
+    setDeleteOpen(true);
+  }
+
+  async function confirmDelete() {
     setDeleting(true);
     await deleteTemplate(templateId);
     setDeleting(false);
+    setDeleteOpen(false);
     router.push(basePath);
   }
 
@@ -374,6 +380,17 @@ export function TemplateEditorPage({ scope, basePath, templateId }: TemplateEdit
           </div>
         </div>
       </main>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete Template"
+        description="Are you sure you want to delete this template? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmDelete}
+        loading={deleting}
+      />
 
       <TemplatePreviewDialog
         open={previewOpen}

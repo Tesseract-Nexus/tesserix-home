@@ -51,6 +51,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TableSkeleton } from "@/components/admin/table-skeleton";
 import { ErrorState } from "@/components/admin/error-state";
 import { EmptyState } from "@/components/admin/empty-state";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   useOnboardingContent,
@@ -971,6 +972,10 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
     });
   }, [items, debouncedSearch]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // Dialog state for inline editing
   const [dialogOpen, setDialogOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1012,13 +1017,20 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
   }, [editingItem, activeTab, form, mutate]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleDelete = useCallback(async (item: any) => {
-    if (!confirm("Are you sure you want to delete this item?")) return;
-    const { error: err } = await deleteOnboardingItem(activeTab, item.id);
-    if (err) { toast.error(err); return; }
+  const handleDelete = useCallback((item: any) => {
+    setDeleteTarget(item);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    const { error: err } = await deleteOnboardingItem(activeTab, deleteTarget.id);
+    setDeleteLoading(false);
+    if (err) { toast.error(err); setDeleteTarget(null); return; }
     toast.success("Item deleted");
+    setDeleteTarget(null);
     mutate();
-  }, [activeTab, mutate]);
+  }, [activeTab, deleteTarget, mutate]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleToggleActive = useCallback(async (item: any) => {
@@ -1202,6 +1214,17 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
             {renderFormFields()}
           </EditDialog>
         )}
+
+        <ConfirmDialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+          title="Delete Item"
+          description="Are you sure you want to delete this item? This action cannot be undone."
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={confirmDelete}
+          loading={deleteLoading}
+        />
       </main>
     </>
   );

@@ -44,6 +44,7 @@ import {
 import { TableSkeleton } from "@/components/admin/table-skeleton";
 import { ErrorState } from "@/components/admin/error-state";
 import { EmptyState } from "@/components/admin/empty-state";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   useContentPages,
   saveContentPages,
@@ -111,6 +112,8 @@ export default function AppContentPage({ params }: { params: Promise<{ slug: str
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const debouncedSearch = useDebounce(search, 300);
+  const [deletePageTarget, setDeletePageTarget] = useState<string | null>(null);
+  const [deletePageLoading, setDeletePageLoading] = useState(false);
 
   const { data, isLoading, error, mutate } = useContentPages(selectedTenantId);
   const allPages = useMemo(() => data?.data ?? [], [data]);
@@ -161,15 +164,26 @@ export default function AppContentPage({ params }: { params: Promise<{ slug: str
         updatedPages = archivePage(allPages, pageId);
         break;
       case "delete":
-        if (!confirm("Are you sure you want to delete this page?")) return;
-        updatedPages = deletePage(allPages, pageId);
-        break;
+        setDeletePageTarget(pageId);
+        return;
     }
 
     const { error } = await saveContentPages(selectedTenantId, updatedPages);
     if (!error) {
       mutate();
     }
+  }
+
+  async function confirmDeletePage() {
+    if (!selectedTenantId || !deletePageTarget) return;
+    setDeletePageLoading(true);
+    const updatedPages = deletePage(allPages, deletePageTarget);
+    const { error } = await saveContentPages(selectedTenantId, updatedPages);
+    setDeletePageLoading(false);
+    if (!error) {
+      mutate();
+    }
+    setDeletePageTarget(null);
   }
 
   return (
@@ -418,6 +432,17 @@ export default function AppContentPage({ params }: { params: Promise<{ slug: str
             )}
           </>
         )}
+
+        <ConfirmDialog
+          open={!!deletePageTarget}
+          onOpenChange={(open) => { if (!open) setDeletePageTarget(null); }}
+          title="Delete Page"
+          description="Are you sure you want to delete this page? This action cannot be undone."
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={confirmDeletePage}
+          loading={deletePageLoading}
+        />
       </main>
     </>
   );
