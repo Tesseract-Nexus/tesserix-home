@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use } from "react";
+import { useState, use, useCallback } from "react";
 import Link from "next/link";
 import {
   RefreshCw,
@@ -20,6 +20,8 @@ import {
   CalendarClock,
   Receipt,
   ExternalLink,
+  Plus,
+  Pencil,
 } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
@@ -48,6 +50,8 @@ import {
 } from "@/components/ui/table";
 import {
   usePlans,
+  createPlan,
+  updatePlan,
   syncPlansToStripe,
   useEnhancedStats,
   useExpiringTrials,
@@ -66,21 +70,25 @@ const APP_NAMES: Record<string, string> = {
 function getPlanIcon(name: string) {
   switch (name) {
     case "free":
-      return <Zap className="h-6 w-6" />;
+      return <Zap className="h-5 w-5" />;
     case "starter":
-      return <Rocket className="h-6 w-6" />;
+      return <Rocket className="h-5 w-5" />;
     case "professional":
-      return <Crown className="h-6 w-6" />;
+      return <Crown className="h-5 w-5" />;
     case "enterprise":
-      return <Building2 className="h-6 w-6" />;
+      return <Building2 className="h-5 w-5" />;
     default:
-      return <Zap className="h-6 w-6" />;
+      return <Zap className="h-5 w-5" />;
   }
 }
 
 function formatCents(cents: number): string {
   if (cents === 0) return "Free";
   return `$${(cents / 100).toFixed(0)}`;
+}
+
+function formatCentsFull(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
 }
 
 function formatStorage(mb: number): string {
@@ -115,6 +123,10 @@ function formatDate(dateStr?: string): string {
   });
 }
 
+function slugify(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
 // ---------- KPI Section ----------
 
 function KpiCardSkeleton() {
@@ -136,6 +148,12 @@ function KpiCards({ stats }: { stats: EnhancedStats | null }) {
 
   const kpis = [
     {
+      title: "MRR",
+      value: formatMrr(stats.mrr),
+      icon: <DollarSign className="h-4 w-4 text-muted-foreground" />,
+      isFormatted: true,
+    },
+    {
       title: "Active",
       value: stats.activeCount,
       icon: <Users className="h-4 w-4 text-muted-foreground" />,
@@ -146,7 +164,7 @@ function KpiCards({ stats }: { stats: EnhancedStats | null }) {
       icon: <Clock className="h-4 w-4 text-muted-foreground" />,
     },
     {
-      title: "Expiring Soon (7d)",
+      title: "Expiring (7d)",
       value: stats.expiringTrials7d,
       icon: <AlertTriangle className="h-4 w-4 text-amber-500" />,
     },
@@ -156,13 +174,7 @@ function KpiCards({ stats }: { stats: EnhancedStats | null }) {
       icon: <ShieldAlert className="h-4 w-4 text-destructive" />,
     },
     {
-      title: "MRR",
-      value: formatMrr(stats.mrr),
-      icon: <DollarSign className="h-4 w-4 text-muted-foreground" />,
-      isFormatted: true,
-    },
-    {
-      title: "Conversion Rate",
+      title: "Conversion",
       value: `${(stats.trialConversionRate ?? 0).toFixed(1)}%`,
       icon: <TrendingUp className="h-4 w-4 text-muted-foreground" />,
       isFormatted: true,
@@ -170,14 +182,14 @@ function KpiCards({ stats }: { stats: EnhancedStats | null }) {
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
       {kpis.map((kpi) => (
         <Card key={kpi.title}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">{kpi.title}</CardTitle>
             {kpi.icon}
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="text-2xl font-bold">
               {kpi.isFormatted ? kpi.value : Number(kpi.value).toLocaleString()}
             </div>
@@ -185,6 +197,349 @@ function KpiCards({ stats }: { stats: EnhancedStats | null }) {
         </Card>
       ))}
     </div>
+  );
+}
+
+// ---------- Plan Form Dialog ----------
+
+const AVAILABLE_FEATURES = [
+  "basic_analytics",
+  "advanced_analytics",
+  "email_support",
+  "priority_support",
+  "api_access",
+  "custom_domain",
+  "dedicated_support",
+  "sla",
+];
+
+interface PlanFormData {
+  name: string;
+  displayName: string;
+  description: string;
+  monthlyPriceDollars: string;
+  yearlyPriceDollars: string;
+  isFree: boolean;
+  isActive: boolean;
+  maxProducts: string;
+  maxUsers: string;
+  maxStorageMb: string;
+  trialDays: string;
+  sortOrder: string;
+  features: Record<string, boolean>;
+}
+
+function getDefaultFormData(): PlanFormData {
+  return {
+    name: "",
+    displayName: "",
+    description: "",
+    monthlyPriceDollars: "0",
+    yearlyPriceDollars: "0",
+    isFree: false,
+    isActive: true,
+    maxProducts: "100",
+    maxUsers: "2",
+    maxStorageMb: "500",
+    trialDays: "0",
+    sortOrder: "0",
+    features: {},
+  };
+}
+
+function planToFormData(plan: SubscriptionPlan): PlanFormData {
+  return {
+    name: plan.name,
+    displayName: plan.displayName,
+    description: plan.description || "",
+    monthlyPriceDollars: (plan.monthlyPriceCents / 100).toFixed(2),
+    yearlyPriceDollars: (plan.yearlyPriceCents / 100).toFixed(2),
+    isFree: plan.isFree,
+    isActive: plan.isActive,
+    maxProducts: String(plan.maxProducts),
+    maxUsers: String(plan.maxUsers),
+    maxStorageMb: String(plan.maxStorageMb),
+    trialDays: String(plan.trialDays),
+    sortOrder: String(plan.sortOrder),
+    features: plan.features || {},
+  };
+}
+
+function PlanFormDialog({
+  plan,
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  plan: SubscriptionPlan | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}) {
+  const isEditing = !!plan;
+  const [form, setForm] = useState<PlanFormData>(
+    plan ? planToFormData(plan) : getDefaultFormData()
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset form when plan changes
+  const resetForm = useCallback(() => {
+    setForm(plan ? planToFormData(plan) : getDefaultFormData());
+    setError(null);
+  }, [plan]);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) resetForm();
+    onOpenChange(nextOpen);
+  }
+
+  function updateField<K extends keyof PlanFormData>(key: K, value: PlanFormData[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function toggleFeature(feature: string) {
+    setForm((prev) => ({
+      ...prev,
+      features: { ...prev.features, [feature]: !prev.features[feature] },
+    }));
+  }
+
+  async function handleSubmit() {
+    if (!form.displayName.trim()) {
+      setError("Display name is required");
+      return;
+    }
+    const name = isEditing ? form.name : slugify(form.displayName);
+    if (!name) {
+      setError("Name could not be generated from display name");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    const payload: Partial<SubscriptionPlan> = {
+      name,
+      displayName: form.displayName.trim(),
+      description: form.description.trim(),
+      monthlyPriceCents: Math.round(parseFloat(form.monthlyPriceDollars || "0") * 100),
+      yearlyPriceCents: Math.round(parseFloat(form.yearlyPriceDollars || "0") * 100),
+      isFree: form.isFree,
+      isActive: form.isActive,
+      maxProducts: parseInt(form.maxProducts) || 0,
+      maxUsers: parseInt(form.maxUsers) || 0,
+      maxStorageMb: parseInt(form.maxStorageMb) || 0,
+      trialDays: parseInt(form.trialDays) || 0,
+      sortOrder: parseInt(form.sortOrder) || 0,
+      features: Object.fromEntries(
+        Object.entries(form.features).filter(([, v]) => v)
+      ),
+    };
+
+    const result = isEditing
+      ? await updatePlan(plan!.id, payload)
+      : await createPlan(payload);
+
+    setSubmitting(false);
+
+    if (result.error) {
+      setError(result.error);
+    } else {
+      onOpenChange(false);
+      onSuccess();
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? "Edit Plan" : "Create Plan"}</DialogTitle>
+          <DialogDescription>
+            {isEditing
+              ? `Update the ${plan!.displayName} plan configuration.`
+              : "Add a new subscription plan."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-2">
+          {/* Row: Display Name + Sort Order */}
+          <div className="grid gap-4 sm:grid-cols-[1fr_100px]">
+            <div className="space-y-2">
+              <Label htmlFor="plan-display-name">Display Name</Label>
+              <Input
+                id="plan-display-name"
+                placeholder="e.g. Professional"
+                value={form.displayName}
+                onChange={(e) => updateField("displayName", e.target.value)}
+              />
+              {!isEditing && form.displayName && (
+                <p className="text-xs text-muted-foreground">
+                  Slug: <code>{slugify(form.displayName)}</code>
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan-sort-order">Order</Label>
+              <Input
+                id="plan-sort-order"
+                type="number"
+                min={0}
+                value={form.sortOrder}
+                onChange={(e) => updateField("sortOrder", e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="plan-description">Description</Label>
+            <Textarea
+              id="plan-description"
+              placeholder="Short description of this plan"
+              value={form.description}
+              onChange={(e) => updateField("description", e.target.value)}
+              className="min-h-[60px]"
+            />
+          </div>
+
+          {/* Pricing */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="plan-monthly">Monthly Price ($)</Label>
+              <Input
+                id="plan-monthly"
+                type="number"
+                min={0}
+                step={0.01}
+                value={form.monthlyPriceDollars}
+                onChange={(e) => updateField("monthlyPriceDollars", e.target.value)}
+                disabled={form.isFree}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan-yearly">Yearly Price ($)</Label>
+              <Input
+                id="plan-yearly"
+                type="number"
+                min={0}
+                step={0.01}
+                value={form.yearlyPriceDollars}
+                onChange={(e) => updateField("yearlyPriceDollars", e.target.value)}
+                disabled={form.isFree}
+              />
+            </div>
+          </div>
+
+          {/* Limits */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="plan-products">Max Products</Label>
+              <Input
+                id="plan-products"
+                type="number"
+                value={form.maxProducts}
+                onChange={(e) => updateField("maxProducts", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">-1 = unlimited</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan-users">Max Users</Label>
+              <Input
+                id="plan-users"
+                type="number"
+                value={form.maxUsers}
+                onChange={(e) => updateField("maxUsers", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">-1 = unlimited</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan-storage">Storage (MB)</Label>
+              <Input
+                id="plan-storage"
+                type="number"
+                value={form.maxStorageMb}
+                onChange={(e) => updateField("maxStorageMb", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">-1 = unlimited</p>
+            </div>
+          </div>
+
+          {/* Trial + Toggles */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="plan-trial">Trial Days</Label>
+              <Input
+                id="plan-trial"
+                type="number"
+                min={0}
+                value={form.trialDays}
+                onChange={(e) => updateField("trialDays", e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3 pt-6">
+              <input
+                type="checkbox"
+                id="plan-free"
+                checked={form.isFree}
+                onChange={(e) => {
+                  updateField("isFree", e.target.checked);
+                  if (e.target.checked) {
+                    updateField("monthlyPriceDollars", "0");
+                    updateField("yearlyPriceDollars", "0");
+                  }
+                }}
+                className="h-4 w-4 rounded border-input"
+              />
+              <Label htmlFor="plan-free" className="cursor-pointer">Free plan</Label>
+            </div>
+            <div className="flex items-center gap-3 pt-6">
+              <input
+                type="checkbox"
+                id="plan-active"
+                checked={form.isActive}
+                onChange={(e) => updateField("isActive", e.target.checked)}
+                className="h-4 w-4 rounded border-input"
+              />
+              <Label htmlFor="plan-active" className="cursor-pointer">Active</Label>
+            </div>
+          </div>
+
+          {/* Features */}
+          <div className="space-y-2">
+            <Label>Features</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {AVAILABLE_FEATURES.map((feature) => (
+                <label
+                  key={feature}
+                  className="flex items-center gap-2 text-sm cursor-pointer rounded-md border px-3 py-2 hover:bg-muted/50 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!form.features[feature]}
+                    onChange={() => toggleFeature(feature)}
+                    className="h-3.5 w-3.5 rounded border-input"
+                  />
+                  <span>{feature.replace(/_/g, " ")}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? "Saving..." : isEditing ? "Save Changes" : "Create Plan"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -289,7 +644,133 @@ function ExtendTrialDialog({
   );
 }
 
-// ---------- Recent Payments Section ----------
+// ---------- Plan Card ----------
+
+function PlanCardSkeleton() {
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-8 w-20" />
+        <div className="space-y-1.5">
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-3/4" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PlanCard({
+  plan,
+  onEdit,
+}: {
+  plan: SubscriptionPlan;
+  onEdit: (plan: SubscriptionPlan) => void;
+}) {
+  const features = plan.features || {};
+  const featureList = Object.entries(features).filter(([, v]) => v);
+  const isStripeSynced = !!plan.stripeProductId;
+
+  return (
+    <Card className={`relative group ${!plan.isActive ? "opacity-60" : ""}`}>
+      {/* Edit button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="absolute top-3 right-3 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={() => onEdit(plan)}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+
+      <CardContent className="p-5 space-y-4">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            {getPlanIcon(plan.name)}
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-semibold leading-tight">{plan.displayName}</h3>
+            <p className="text-xs text-muted-foreground truncate">{plan.description}</p>
+          </div>
+        </div>
+
+        {/* Price */}
+        <div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold">{formatCents(plan.monthlyPriceCents)}</span>
+            {!plan.isFree && <span className="text-sm text-muted-foreground">/mo</span>}
+          </div>
+          {!plan.isFree && plan.yearlyPriceCents > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {formatCents(plan.yearlyPriceCents)}/yr
+              {plan.monthlyPriceCents > 0 && (
+                <> (save {Math.round((1 - plan.yearlyPriceCents / (plan.monthlyPriceCents * 12)) * 100)}%)</>
+              )}
+            </p>
+          )}
+        </div>
+
+        {/* Limits */}
+        <div className="space-y-1.5 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Products</span>
+            <span className="font-medium">{formatLimit(plan.maxProducts)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Users</span>
+            <span className="font-medium">{formatLimit(plan.maxUsers)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Storage</span>
+            <span className="font-medium">{formatStorage(plan.maxStorageMb)}</span>
+          </div>
+          {plan.trialDays > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Trial</span>
+              <span className="font-medium">{plan.trialDays} days</span>
+            </div>
+          )}
+        </div>
+
+        {/* Features */}
+        {featureList.length > 0 && (
+          <div className="space-y-1 border-t pt-3">
+            {featureList.map(([feature]) => (
+              <div key={feature} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Check className="h-3 w-3 text-green-500 shrink-0" />
+                <span>{feature.replace(/_/g, " ")}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer badges */}
+        <div className="flex items-center gap-2 border-t pt-3">
+          {plan.isFree && <Badge variant="secondary" className="text-xs">Free</Badge>}
+          {plan.isActive ? (
+            <Badge variant="success" className="text-xs">Active</Badge>
+          ) : (
+            <Badge variant="destructive" className="text-xs">Inactive</Badge>
+          )}
+          {isStripeSynced ? (
+            <Badge variant="secondary" className="text-xs">
+              <Check className="mr-1 h-3 w-3" />Stripe
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs">
+              <X className="mr-1 h-3 w-3" />Stripe
+            </Badge>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------- Recent Payments ----------
 
 const INVOICE_STATUSES = [
   { label: "All", value: "" },
@@ -298,10 +779,6 @@ const INVOICE_STATUSES = [
   { label: "Void", value: "void" },
   { label: "Draft", value: "draft" },
 ];
-
-function formatAmountCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 function invoiceStatusVariant(status: string): "success" | "warning" | "secondary" {
   switch (status) {
@@ -317,14 +794,13 @@ function invoiceStatusVariant(status: string): "success" | "warning" | "secondar
 function RecentPaymentsSection() {
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 10;
   const { data, isLoading, error, mutate } = useAdminInvoices(
     statusFilter || undefined,
     PAGE_SIZE,
     page * PAGE_SIZE,
   );
 
-  // Reset to page 0 when filter changes
   function handleStatusChange(value: string) {
     setStatusFilter(value);
     setPage(0);
@@ -343,41 +819,36 @@ function RecentPaymentsSection() {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Receipt className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <CardTitle>Recent Payments</CardTitle>
-            <CardDescription>
-              Invoice payments across all tenants
-            </CardDescription>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Receipt className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">Recent Payments</CardTitle>
+          </div>
+          <div className="flex gap-1">
+            {INVOICE_STATUSES.map((s) => (
+              <Button
+                key={s.value}
+                variant={statusFilter === s.value ? "default" : "ghost"}
+                size="sm"
+                className="h-7 text-xs px-2"
+                onClick={() => handleStatusChange(s.value)}
+              >
+                {s.label}
+              </Button>
+            ))}
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Status filter */}
-        <div className="flex flex-wrap gap-1">
-          {INVOICE_STATUSES.map((s) => (
-            <Button
-              key={s.value}
-              variant={statusFilter === s.value ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleStatusChange(s.value)}
-            >
-              {s.label}
-            </Button>
-          ))}
-        </div>
-
-        {/* Table */}
+      <CardContent className="pt-0">
         {isLoading ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
+              <Skeleton key={i} className="h-10 w-full" />
             ))}
           </div>
         ) : invoices.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
+          <p className="text-sm text-muted-foreground py-6 text-center">
             No invoices found.
           </p>
         ) : (
@@ -385,51 +856,47 @@ function RecentPaymentsSection() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-xs">Date</TableHead>
+                  <TableHead className="text-xs">Tenant</TableHead>
+                  <TableHead className="text-xs">Amount</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs text-right">Links</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {invoices.map((inv: SubscriptionInvoice) => (
                   <TableRow key={inv.id}>
-                    <TableCell>{formatDate(inv.createdAt)}</TableCell>
-                    <TableCell className="font-mono text-sm">
+                    <TableCell className="text-xs py-2">{formatDate(inv.createdAt)}</TableCell>
+                    <TableCell className="font-mono text-xs py-2">
                       {inv.tenantId.slice(0, 8)}...
                     </TableCell>
-                    <TableCell>{formatAmountCents(inv.amountDueCents)}</TableCell>
-                    <TableCell>
-                      <Badge variant={invoiceStatusVariant(inv.status)}>
+                    <TableCell className="text-xs py-2 font-medium">{formatCentsFull(inv.amountDueCents)}</TableCell>
+                    <TableCell className="py-2">
+                      <Badge variant={invoiceStatusVariant(inv.status)} className="text-xs">
                         {inv.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right py-2">
                       <div className="flex items-center justify-end gap-1">
                         {inv.stripeHostedUrl && (
-                          <Button variant="ghost" size="sm" asChild>
-                            <a
-                              href={inv.stripeHostedUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              View
-                              <ExternalLink className="ml-1 h-3 w-3" />
-                            </a>
-                          </Button>
+                          <a
+                            href={inv.stripeHostedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline inline-flex items-center gap-0.5"
+                          >
+                            View<ExternalLink className="h-3 w-3" />
+                          </a>
                         )}
                         {inv.stripeInvoicePdf && (
-                          <Button variant="ghost" size="sm" asChild>
-                            <a
-                              href={inv.stripeInvoicePdf}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              PDF
-                              <ExternalLink className="ml-1 h-3 w-3" />
-                            </a>
-                          </Button>
+                          <a
+                            href={inv.stripeInvoicePdf}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline inline-flex items-center gap-0.5 ml-2"
+                          >
+                            PDF<ExternalLink className="h-3 w-3" />
+                          </a>
                         )}
                       </div>
                     </TableCell>
@@ -438,15 +905,15 @@ function RecentPaymentsSection() {
               </TableBody>
             </Table>
 
-            {/* Pagination */}
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center justify-between text-xs mt-3 pt-3 border-t">
               <span className="text-muted-foreground">
-                Showing {rangeStart}-{rangeEnd} of {total}
+                {rangeStart}-{rangeEnd} of {total}
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-7 text-xs"
                   onClick={() => setPage((p) => p - 1)}
                   disabled={!hasPrev}
                 >
@@ -455,6 +922,7 @@ function RecentPaymentsSection() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-7 text-xs"
                   onClick={() => setPage((p) => p + 1)}
                   disabled={!hasNext}
                 >
@@ -469,7 +937,7 @@ function RecentPaymentsSection() {
   );
 }
 
-// ---------- Expiring Trials Table ----------
+// ---------- Expiring Trials ----------
 
 function ExpiringTrialsSection() {
   const { data: trials, isLoading, error, mutate } = useExpiringTrials(30);
@@ -481,21 +949,16 @@ function ExpiringTrialsSection() {
     setDialogOpen(true);
   }
 
-  function handleExtendSuccess() {
-    mutate();
-  }
-
   if (isLoading) {
     return (
       <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-4 w-64" />
+        <CardHeader className="pb-3">
+          <Skeleton className="h-5 w-32" />
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
+        <CardContent className="pt-0">
+          <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
+              <Skeleton key={i} className="h-10 w-full" />
             ))}
           </div>
         </CardContent>
@@ -518,31 +981,28 @@ function ExpiringTrialsSection() {
   return (
     <>
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <CalendarClock className="h-5 w-5 text-amber-500" />
-            <div>
-              <CardTitle>Expiring Trials</CardTitle>
-              <CardDescription>
-                Tenants with trials ending within the next 30 days
-              </CardDescription>
-            </div>
+            <CalendarClock className="h-4 w-4 text-amber-500" />
+            <CardTitle className="text-base">Expiring Trials</CardTitle>
+            {sorted.length > 0 && (
+              <Badge variant="warning" className="text-xs ml-1">{sorted.length}</Badge>
+            )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           {sorted.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
+            <p className="text-sm text-muted-foreground py-6 text-center">
               No trials expiring in the next 30 days.
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Tenant ID</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Trial Ends</TableHead>
-                  <TableHead>Days Left</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="text-xs">Tenant</TableHead>
+                  <TableHead className="text-xs">Plan</TableHead>
+                  <TableHead className="text-xs">Expires</TableHead>
+                  <TableHead className="text-xs text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -550,27 +1010,28 @@ function ExpiringTrialsSection() {
                   const daysLeft = getDaysLeft(trial.trialEnd);
                   return (
                     <TableRow key={trial.id}>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="font-mono text-xs py-2">
                         {trial.tenantId.slice(0, 8)}...
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-xs py-2">
                         {trial.plan?.displayName || trial.planId.slice(0, 8)}
                       </TableCell>
-                      <TableCell>{formatDate(trial.trialEnd)}</TableCell>
-                      <TableCell>
+                      <TableCell className="py-2">
                         <Badge
                           variant={daysLeft <= 3 ? "destructive" : daysLeft <= 7 ? "warning" : "secondary"}
+                          className="text-xs"
                         >
-                          {daysLeft} {daysLeft === 1 ? "day" : "days"}
+                          {daysLeft}d
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right py-2">
                         <Button
                           variant="outline"
                           size="sm"
+                          className="h-7 text-xs"
                           onClick={() => handleExtendClick(trial)}
                         >
-                          Extend Trial
+                          Extend
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -586,124 +1047,9 @@ function ExpiringTrialsSection() {
         trial={selectedTrial}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onSuccess={handleExtendSuccess}
+        onSuccess={() => mutate()}
       />
     </>
-  );
-}
-
-// ---------- Plan Cards ----------
-
-function PlanCardSkeleton() {
-  return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-6 w-32" />
-        <Skeleton className="h-4 w-48" />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Skeleton className="h-10 w-24" />
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function PlanCard({ plan }: { plan: SubscriptionPlan }) {
-  const features = plan.features || {};
-  const featureList = Object.entries(features).filter(([, v]) => v);
-  const isStripeSynced = !!plan.stripeProductId;
-
-  return (
-    <Card className={!plan.isActive ? "opacity-60" : ""}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              {getPlanIcon(plan.name)}
-            </div>
-            <div>
-              <CardTitle className="text-lg">{plan.displayName}</CardTitle>
-              <CardDescription>{plan.description}</CardDescription>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {plan.isFree && <Badge variant="secondary">Free</Badge>}
-            {plan.isActive ? (
-              <Badge variant="success">Active</Badge>
-            ) : (
-              <Badge variant="destructive">Inactive</Badge>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold">{formatCents(plan.monthlyPriceCents)}</span>
-            {!plan.isFree && <span className="text-muted-foreground">/mo</span>}
-          </div>
-          {!plan.isFree && (
-            <p className="text-sm text-muted-foreground">
-              {formatCents(plan.yearlyPriceCents)}/yr (save {Math.round((1 - plan.yearlyPriceCents / (plan.monthlyPriceCents * 12)) * 100)}%)
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Products</span>
-            <span className="font-medium">{formatLimit(plan.maxProducts)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Users</span>
-            <span className="font-medium">{formatLimit(plan.maxUsers)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Storage</span>
-            <span className="font-medium">{formatStorage(plan.maxStorageMb)}</span>
-          </div>
-          {plan.trialDays > 0 && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Trial</span>
-              <span className="font-medium">{plan.trialDays} days</span>
-            </div>
-          )}
-        </div>
-
-        {featureList.length > 0 && (
-          <div className="space-y-1.5 border-t pt-3">
-            <p className="text-xs font-medium text-muted-foreground uppercase">Features</p>
-            {featureList.map(([feature]) => (
-              <div key={feature} className="flex items-center gap-2 text-sm">
-                <Check className="h-3.5 w-3.5 text-green-500" />
-                <span>{feature.replace(/_/g, " ")}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="border-t pt-3">
-          <div className="flex items-center gap-2 text-sm">
-            {isStripeSynced ? (
-              <>
-                <Check className="h-4 w-4 text-green-500" />
-                <span className="text-muted-foreground">Synced to Stripe</span>
-              </>
-            ) : (
-              <>
-                <X className="h-4 w-4 text-amber-500" />
-                <span className="text-muted-foreground">Not synced to Stripe</span>
-              </>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -715,6 +1061,8 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
   const { data: plans, isLoading, error, mutate } = usePlans();
   const { data: enhancedStats, isLoading: statsLoading } = useEnhancedStats();
   const [syncing, setSyncing] = useState(false);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
 
   async function handleSyncToStripe() {
     setSyncing(true);
@@ -725,11 +1073,27 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
     }
   }
 
+  function handleCreatePlan() {
+    setEditingPlan(null);
+    setPlanDialogOpen(true);
+  }
+
+  function handleEditPlan(plan: SubscriptionPlan) {
+    setEditingPlan(plan);
+    setPlanDialogOpen(true);
+  }
+
+  function handlePlanSuccess() {
+    mutate();
+  }
+
+  const sortedPlans = plans ? [...plans].sort((a, b) => a.sortOrder - b.sortOrder) : [];
+
   return (
     <>
       <AdminHeader
-        title="Subscription Plans"
-        description={`Manage billing plans for ${appName} tenants`}
+        title="Billing & Plans"
+        description={`Manage subscriptions and billing for ${appName}`}
       />
 
       <main className="p-6 space-y-6">
@@ -744,7 +1108,7 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
 
         {/* KPI Row */}
         {statsLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <KpiCardSkeleton key={i} />
             ))}
@@ -753,53 +1117,76 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
           <KpiCards stats={enhancedStats} />
         )}
 
-        {/* Recent Payments */}
-        <RecentPaymentsSection />
-
-        {/* Expiring Trials */}
-        <ExpiringTrialsSection />
-
-        {/* Actions bar */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            {plans ? `${plans.length} plans configured` : "Loading..."}
-          </p>
-          <Button
-            onClick={handleSyncToStripe}
-            disabled={syncing}
-            variant="outline"
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Syncing..." : "Sync to Stripe"}
-          </Button>
-        </div>
-
-        {/* Plans grid */}
-        {isLoading ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <PlanCardSkeleton key={i} />
-            ))}
+        {/* Plans Section */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold">Subscription Plans</h2>
+              <p className="text-sm text-muted-foreground">
+                {plans ? `${plans.length} plans configured` : "Loading plans..."}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleSyncToStripe}
+                disabled={syncing}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Syncing..." : "Sync to Stripe"}
+              </Button>
+              <Button onClick={handleCreatePlan} size="sm">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Create Plan
+              </Button>
+            </div>
           </div>
-        ) : error ? (
-          <ErrorState message={error} onRetry={mutate} />
-        ) : !plans || plans.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">No subscription plans configured yet.</p>
-              <p className="text-sm text-muted-foreground mt-1">Plans are seeded automatically when the subscription service starts.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {plans
-              .sort((a, b) => a.sortOrder - b.sortOrder)
-              .map((plan) => (
-                <PlanCard key={plan.id} plan={plan} />
+
+          {isLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <PlanCardSkeleton key={i} />
               ))}
+            </div>
+          ) : error ? (
+            <ErrorState message={error} onRetry={mutate} />
+          ) : sortedPlans.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">No subscription plans configured yet.</p>
+                <Button onClick={handleCreatePlan} variant="outline" className="mt-3">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Your First Plan
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {sortedPlans.map((plan) => (
+                <PlanCard key={plan.id} plan={plan} onEdit={handleEditPlan} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Activity Section: Payments + Trials side by side */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4">Activity</h2>
+          <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
+            <RecentPaymentsSection />
+            <ExpiringTrialsSection />
           </div>
-        )}
+        </section>
       </main>
+
+      {/* Plan Create/Edit Dialog */}
+      <PlanFormDialog
+        plan={editingPlan}
+        open={planDialogOpen}
+        onOpenChange={setPlanDialogOpen}
+        onSuccess={handlePlanSuccess}
+      />
     </>
   );
 }
