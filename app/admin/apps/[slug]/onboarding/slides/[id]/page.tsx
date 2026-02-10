@@ -3,6 +3,7 @@
 import { useState, use, useCallback } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,7 +77,7 @@ export default function SlideDetailPage({
   const handleSave = useCallback(async () => {
     if (!form) return;
     if (jsonError) {
-      alert("Fix JSON errors before saving.");
+      toast.error("Fix JSON errors before saving.");
       return;
     }
     setSaving(true);
@@ -86,7 +87,7 @@ export default function SlideDetailPage({
         try {
           parsedContent = JSON.parse(contentJson);
         } catch {
-          alert("Invalid JSON in content field");
+          toast.error("Invalid JSON in content field");
           return;
         }
       }
@@ -95,11 +96,10 @@ export default function SlideDetailPage({
       const { error: err } = await updateOnboardingItem("presentation-slides", id, {
         slideNumber, type, label, title, titleGradient, titleHighlight, subtitle, content: parsedContent, active,
       });
-      if (err) alert(err);
-      else {
-        setContentJson(null);
-        mutate();
-      }
+      if (err) { toast.error(err); return; }
+      toast.success("Slide updated successfully");
+      setContentJson(null);
+      mutate();
     } finally {
       setSaving(false);
     }

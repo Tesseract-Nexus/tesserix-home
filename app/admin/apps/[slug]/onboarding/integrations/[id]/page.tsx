@@ -3,6 +3,7 @@
 import { useState, use, useCallback } from "react";
 import { ArrowLeft, Plus, Trash2, GripVertical } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,8 +58,9 @@ export default function IntegrationDetailPage({
       const { error: err } = await updateOnboardingItem("integrations", id, {
         name, category, description, logoUrl, status, sortOrder, active,
       });
-      if (err) alert(err);
-      else mutate();
+      if (err) { toast.error(err); return; }
+      toast.success("Integration updated successfully");
+      mutate();
     } finally {
       setSaving(false);
     }
@@ -74,17 +76,19 @@ export default function IntegrationDetailPage({
       method: "POST",
       body: JSON.stringify({ feature: newFeature.trim(), sortOrder: maxOrder + 1 }),
     });
-    if (!err) {
-      setNewFeature("");
-      mutate();
-    }
+    if (err) { toast.error("Failed to add feature"); return; }
+    toast.success("Feature added");
+    setNewFeature("");
+    mutate();
   }, [newFeature, id, integration, mutate]);
 
   const removeFeature = useCallback(
     async (featureId: string) => {
-      await apiFetch(`${BASE_PATH}/integrations/${id}/features/${featureId}`, {
+      const { error: err } = await apiFetch(`${BASE_PATH}/integrations/${id}/features/${featureId}`, {
         method: "DELETE",
       });
+      if (err) { toast.error("Failed to remove feature"); return; }
+      toast.success("Feature removed");
       mutate();
     },
     [id, mutate]

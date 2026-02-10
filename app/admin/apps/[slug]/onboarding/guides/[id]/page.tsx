@@ -3,6 +3,7 @@
 import { useState, use, useCallback } from "react";
 import { ArrowLeft, Plus, Trash2, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,8 +51,9 @@ export default function GuideDetailPage({
       const { error: err } = await updateOnboardingItem("guides", id, {
         title, slug: guideSlug, description, iconName, duration, featured, content, sortOrder, active,
       });
-      if (err) alert(err);
-      else mutate();
+      if (err) { toast.error(err); return; }
+      toast.success("Guide updated successfully");
+      mutate();
     } finally {
       setSaving(false);
     }
@@ -68,16 +70,18 @@ export default function GuideDetailPage({
       title: newStepTitle.trim(),
       sortOrder: maxOrder + 1,
     });
-    if (!err) {
-      setNewStepTitle("");
-      mutate();
-    }
+    if (err) { toast.error("Failed to add step"); return; }
+    toast.success("Step added");
+    setNewStepTitle("");
+    mutate();
   }, [newStepTitle, id, guide, mutate]);
 
   const handleUpdateStep = useCallback(
     async (stepId: string, data: Partial<GuideStep>) => {
       const { error: err } = await updateGuideStep(id, stepId, data);
-      if (!err) mutate();
+      if (err) { toast.error("Failed to update step"); return; }
+      toast.success("Step updated");
+      mutate();
     },
     [id, mutate]
   );
@@ -86,7 +90,9 @@ export default function GuideDetailPage({
     async (stepId: string) => {
       if (!confirm("Delete this step?")) return;
       const { error: err } = await deleteGuideStep(id, stepId);
-      if (!err) mutate();
+      if (err) { toast.error("Failed to delete step"); return; }
+      toast.success("Step deleted");
+      mutate();
     },
     [id, mutate]
   );

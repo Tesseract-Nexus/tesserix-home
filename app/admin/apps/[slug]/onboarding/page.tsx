@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -832,10 +833,12 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
     try {
       if (editingItem) {
         const { error: err } = await updateOnboardingItem(activeTab, editingItem.id, form);
-        if (err) { alert(err); return; }
+        if (err) { toast.error(err); return; }
+        toast.success("Item updated successfully");
       } else {
         const { error: err } = await createOnboardingItem(activeTab, form);
-        if (err) { alert(err); return; }
+        if (err) { toast.error(err); return; }
+        toast.success("Item created successfully");
       }
       setDialogOpen(false);
       mutate();
@@ -848,13 +851,17 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
   const handleDelete = useCallback(async (item: any) => {
     if (!confirm("Are you sure you want to delete this item?")) return;
     const { error: err } = await deleteOnboardingItem(activeTab, item.id);
-    if (!err) mutate();
+    if (err) { toast.error(err); return; }
+    toast.success("Item deleted");
+    mutate();
   }, [activeTab, mutate]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleToggleActive = useCallback(async (item: any) => {
     const { error: err } = await updateOnboardingItem(activeTab, item.id, { active: !item.active });
-    if (!err) mutate();
+    if (err) { toast.error(err); return; }
+    toast.success(item.active ? "Item deactivated" : "Item activated");
+    mutate();
   }, [activeTab, mutate]);
 
   const handleCreateComplex = useCallback(() => {
@@ -876,7 +883,7 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
           break;
       }
       const { data: result, error: err } = await createOnboardingItem(activeTab, defaults);
-      if (err) { alert(err); return; }
+      if (err) { toast.error(err); return; }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newItem = (result as any)?.data;
       if (!newItem?.id) { mutate(); return; }
