@@ -1,18 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Settings,
   User,
   Palette,
   Server,
   Shield,
+  CreditCard,
   Sun,
   Moon,
   Monitor,
   LogOut,
   ExternalLink,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  EyeOff,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { AdminHeader } from "@/components/admin/header";
 import {
   Card,
@@ -23,6 +31,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Tabs,
   TabsContent,
@@ -300,6 +310,332 @@ function SecurityTab() {
   );
 }
 
+interface StripeSettings {
+  secretKeyConfigured: boolean;
+  secretKeyHint: string;
+  webhookSecretConfigured: boolean;
+  webhookSecretHint: string;
+  keySource: string;
+}
+
+interface VerifyResult {
+  valid: boolean;
+  accountId?: string;
+  accountName?: string;
+  livemode: boolean;
+  error?: string;
+}
+
+function PaymentTab() {
+  const [settings, setSettings] = useState<StripeSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
+
+  // Update form state
+  const [secretKey, setSecretKey] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
+  const [showSecretKey, setShowSecretKey] = useState(false);
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+
+  // Action states
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [reloading, setReloading] = useState(false);
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/subscriptions/admin/settings/stripe");
+      if (res.ok) {
+        setSettings(await res.json());
+      }
+    } catch {
+      console.error("Failed to fetch Stripe settings");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  async function handleVerify() {
+    if (!secretKey.trim()) return;
+    setVerifying(true);
+    setVerifyResult(null);
+    try {
+      const res = await fetch("/api/subscriptions/admin/settings/stripe/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secretKey }),
+      });
+      const data = await res.json();
+      setVerifyResult(data);
+    } catch {
+      setVerifyResult({ valid: false, livemode: false, error: "Request failed" });
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  async function handleSave() {
+    const body: Record<string, string> = {};
+    if (secretKey.trim()) body.secretKey = secretKey;
+    if (webhookSecret.trim()) body.webhookSecret = webhookSecret;
+
+    if (Object.keys(body).length === 0) {
+      toast.error("Enter at least one key to update");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/subscriptions/admin/settings/stripe", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        toast.success("Stripe keys updated successfully");
+        setSecretKey("");
+        setWebhookSecret("");
+        setVerifyResult(null);
+        setShowUpdateForm(false);
+        fetchSettings();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to update keys");
+      }
+    } catch {
+      toast.error("Failed to update Stripe keys");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleReload() {
+    setReloading(true);
+    try {
+      const res = await fetch("/api/subscriptions/admin/settings/stripe/reload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSettings(data);
+        toast.success("Stripe keys reloaded from source");
+      } else {
+        toast.error("Failed to reload keys");
+      }
+    } catch {
+      toast.error("Failed to reload Stripe keys");
+    } finally {
+      setReloading(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Stripe Configuration</CardTitle>
+          <CardDescription>Manage your Stripe API keys for billing</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {settings ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm text-muted-foreground">Secret Key</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant={settings.secretKeyConfigured ? "success" : "destructive"}>
+                      {settings.secretKeyConfigured ? "Configured" : "Not set"}
+                    </Badge>
+                    {settings.secretKeyHint && (
+                      <code className="text-xs text-muted-foreground">{settings.secretKeyHint}</code>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Webhook Secret</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant={settings.webhookSecretConfigured ? "success" : "destructive"}>
+                      {settings.webhookSecretConfigured ? "Configured" : "Not set"}
+                    </Badge>
+                    {settings.webhookSecretHint && (
+                      <code className="text-xs text-muted-foreground">{settings.webhookSecretHint}</code>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Source</p>
+                  <Badge variant="secondary" className="mt-1">
+                    {settings.keySource === "gcp" ? "GCP Secret Manager" : "Environment Variable"}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowUpdateForm(!showUpdateForm);
+                    setVerifyResult(null);
+                  }}
+                >
+                  {showUpdateForm ? "Cancel" : "Update Keys"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleReload}
+                  disabled={reloading}
+                >
+                  {reloading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Reload from Source
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Unable to load Stripe settings. The subscription service may be unavailable.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {showUpdateForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Update Stripe Keys</CardTitle>
+            <CardDescription>
+              Enter new keys to save to {settings?.keySource === "gcp" ? "GCP Secret Manager" : "the server"}.
+              Leave a field empty to keep the current value.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="secretKey">Stripe Secret Key</Label>
+              <div className="relative">
+                <Input
+                  id="secretKey"
+                  type={showSecretKey ? "text" : "password"}
+                  placeholder="sk_live_..."
+                  value={secretKey}
+                  onChange={(e) => {
+                    setSecretKey(e.target.value);
+                    setVerifyResult(null);
+                  }}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSecretKey(!showSecretKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+
+              {secretKey.trim() && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleVerify}
+                    disabled={verifying}
+                  >
+                    {verifying ? (
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="mr-2 h-3 w-3" />
+                    )}
+                    Verify Key
+                  </Button>
+                  {verifyResult && (
+                    <div className="flex items-center gap-1 text-sm">
+                      {verifyResult.valid ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <span className="text-green-600">
+                            Valid ({verifyResult.accountId}
+                            {verifyResult.accountName ? `, ${verifyResult.accountName}` : ""}
+                            {verifyResult.livemode ? ", Live" : ", Test"})
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-4 w-4 text-destructive" />
+                          <span className="text-destructive">
+                            Invalid: {verifyResult.error}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="webhookSecret">Webhook Secret</Label>
+              <div className="relative">
+                <Input
+                  id="webhookSecret"
+                  type={showWebhookSecret ? "text" : "password"}
+                  placeholder="whsec_..."
+                  value={webhookSecret}
+                  onChange={(e) => setWebhookSecret(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowWebhookSecret(!showWebhookSecret)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showWebhookSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button onClick={handleSave} disabled={saving}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save to {settings?.keySource === "gcp" ? "GCP" : "Server"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowUpdateForm(false);
+                  setSecretKey("");
+                  setWebhookSecret("");
+                  setVerifyResult(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <>
@@ -328,6 +664,10 @@ export default function SettingsPage() {
               <Shield className="h-4 w-4" />
               Security
             </TabsTrigger>
+            <TabsTrigger value="payment" className="gap-2">
+              <CreditCard className="h-4 w-4" />
+              Payment
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile">
@@ -344,6 +684,10 @@ export default function SettingsPage() {
 
           <TabsContent value="security">
             <SecurityTab />
+          </TabsContent>
+
+          <TabsContent value="payment">
+            <PaymentTab />
           </TabsContent>
         </Tabs>
       </main>

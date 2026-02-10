@@ -32,7 +32,7 @@ export interface TenantSubscription {
   plan?: SubscriptionPlan;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
-  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid';
+  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'expired' | 'suspended';
   billing_interval: 'monthly' | 'yearly';
   current_period_start?: string;
   current_period_end?: string;
@@ -72,6 +72,31 @@ export interface SubscriptionStats {
   total_revenue_cents: number;
 }
 
+export interface EnhancedStats extends SubscriptionStats {
+  trialConversionRate: number;
+  expiringTrials7d: number;
+  expiringTrials30d: number;
+  expiredCount: number;
+  suspendedCount: number;
+}
+
+export interface ExpiringTrial {
+  id: string;
+  tenant_id: string;
+  plan_id: string;
+  plan?: SubscriptionPlan;
+  status: string;
+  trial_start?: string;
+  trial_end?: string;
+  billing_email?: string;
+  created_at?: string;
+}
+
+export interface ExtendTrialRequest {
+  additionalDays: number;
+  reason: string;
+}
+
 // Hooks
 
 export function usePlans() {
@@ -88,6 +113,29 @@ export function useTenantInvoices(tenantId: string | null) {
 
 export function useSubscriptionStats() {
   return useApi<SubscriptionStats>('/api/subscriptions/stats');
+}
+
+export function useEnhancedStats() {
+  return useApi<EnhancedStats>('/api/subscriptions/admin/stats/enhanced');
+}
+
+export function useExpiringTrials(days: number = 30) {
+  return useApi<ExpiringTrial[]>(`/api/subscriptions/admin/expiring-trials?days=${days}`);
+}
+
+export interface AdminInvoicesResponse {
+  invoices: SubscriptionInvoice[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export function useAdminInvoices(status?: string, limit = 20, offset = 0) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+  return useApi<AdminInvoicesResponse>(`/api/subscriptions/admin/invoices?${params}`);
 }
 
 // Mutations
@@ -148,5 +196,12 @@ export async function changePlan(tenantId: string, planId: string) {
   return apiFetch(`/api/subscriptions/${tenantId}/change-plan`, {
     method: 'PUT',
     body: JSON.stringify({ plan_id: planId }),
+  });
+}
+
+export async function extendTrial(tenantId: string, additionalDays: number, reason: string) {
+  return apiFetch(`/api/subscriptions/admin/${tenantId}/extend-trial`, {
+    method: 'POST',
+    body: JSON.stringify({ additionalDays, reason }),
   });
 }
