@@ -5,7 +5,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  ShoppingBag,
   Ticket,
   FileText,
   CreditCard,
@@ -142,9 +141,15 @@ function LeftRail({
       <div className="flex h-16 items-center justify-center">
         <Link
           href="/admin/dashboard"
-          className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-accent text-sidebar-foreground font-bold text-lg"
+          className="flex h-9 w-9 items-center justify-center rounded-lg"
         >
-          T
+          <Image
+            src="/icon.png"
+            alt="Tesserix"
+            width={28}
+            height={28}
+            className="brightness-0 invert"
+          />
         </Link>
       </div>
 
@@ -159,13 +164,31 @@ function LeftRail({
           onClick={() => onContextChange("platform")}
           href="/admin/dashboard"
         />
-        <RailIcon
-          icon={ShoppingBag}
-          label="Mark8ly"
-          isActive={activeContext === "mark8ly"}
-          onClick={() => onContextChange("mark8ly")}
-          href="/admin/apps/mark8ly"
-        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href="/admin/apps/mark8ly"
+              onClick={() => onContextChange("mark8ly")}
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+                activeContext === "mark8ly"
+                  ? "bg-sidebar-accent"
+                  : "hover:bg-sidebar-accent/50"
+              )}
+            >
+              <Image
+                src="/mark8ly-icon.png"
+                alt="Mark8ly"
+                width={24}
+                height={24}
+                className="rounded-sm brightness-0 invert"
+              />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right" sideOffset={8}>
+            Mark8ly
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* User avatar + Logout at bottom */}

@@ -2,6 +2,7 @@
 
 import { use } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Users,
   Ticket,
@@ -28,6 +29,10 @@ const APP_NAMES: Record<string, string> = {
 
 const APP_DESCRIPTIONS: Record<string, string> = {
   mark8ly: "Multi-tenant e-commerce marketplace platform",
+};
+
+const APP_ICONS: Record<string, string> = {
+  mark8ly: "/mark8ly-icon.png",
 };
 
 function getStatusColor(status: string) {
@@ -98,6 +103,7 @@ export default function AppOverviewPage({ params }: { params: Promise<{ slug: st
   const { slug } = use(params);
   const appName = APP_NAMES[slug] || slug;
   const appDescription = APP_DESCRIPTIONS[slug] || "";
+  const appIcon = APP_ICONS[slug];
 
   const { data: tenantsData, isLoading: tenantsLoading, error: tenantsError, mutate: mutateTenants } = useTenants({ limit: 5 });
   const { data: ticketsData, isLoading: ticketsLoading, error: ticketsError, mutate: mutateTickets } = useTickets({ limit: 5 });
@@ -122,6 +128,15 @@ export default function AppOverviewPage({ params }: { params: Promise<{ slug: st
       <AdminHeader
         title={appName}
         description={appDescription}
+        icon={appIcon ? (
+          <Image
+            src={appIcon}
+            alt={appName}
+            width={32}
+            height={32}
+            className="brightness-0 dark:invert"
+          />
+        ) : undefined}
       />
 
       <main className="p-6 space-y-6">
