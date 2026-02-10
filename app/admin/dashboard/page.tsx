@@ -103,9 +103,9 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatsCard
-              title="Total Tenants"
+              title="Active Stores"
               value={totalTenants}
-              description="All time"
+              description="Across all apps"
               icon={<Building2 className="h-4 w-4" />}
             />
             <StatsCard
@@ -135,11 +135,11 @@ export default function DashboardPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Recent Tenants</CardTitle>
+                <CardTitle>Recent Stores</CardTitle>
                 <CardDescription>Newly onboarded businesses</CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/admin/tenants">
+                <Link href="/admin/apps/mark8ly">
                   View all
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -151,7 +151,7 @@ export default function DashboardPage() {
               ) : tenantsError ? (
                 <ErrorState message={tenantsError} onRetry={mutateTenants} />
               ) : recentTenants.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">No tenants yet</p>
+                <p className="text-sm text-muted-foreground py-4 text-center">No stores yet</p>
               ) : (
                 <div className="space-y-4">
                   {recentTenants.map((tenant: Tenant) => (
@@ -161,7 +161,7 @@ export default function DashboardPage() {
                     >
                       <div>
                         <Link
-                          href={`/admin/tenants/${tenant.id}`}
+                          href={`/admin/apps/mark8ly/${tenant.id}`}
                           className="font-medium hover:underline"
                         >
                           {tenant.name}

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Users,
+  Boxes,
   Ticket,
   FileText,
   CreditCard,
@@ -27,7 +27,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 
 const navigation = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { name: "Tenants", href: "/admin/tenants", icon: Users },
+  { name: "Apps", href: "/admin/apps", icon: Boxes },
   { name: "Tickets", href: "/admin/tickets", icon: Ticket },
   { name: "Content", href: "/admin/content", icon: FileText },
   { name: "Billing", href: "/admin/billing", icon: CreditCard },
