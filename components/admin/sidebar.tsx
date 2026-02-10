@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   Users,
+  Rocket,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ const mark8lyNav: NavItem[] = [
   { name: "Tenants", href: "/admin/apps/mark8ly/tenants", icon: Users },
   { name: "Tickets", href: "/admin/apps/mark8ly/tickets", icon: Ticket },
   { name: "Content", href: "/admin/apps/mark8ly/content", icon: FileText },
+  { name: "Onboarding", href: "/admin/apps/mark8ly/onboarding", icon: Rocket },
   { name: "Billing", href: "/admin/apps/mark8ly/billing", icon: CreditCard },
   { name: "Feature Flags", href: "/admin/apps/mark8ly/feature-flags", icon: ToggleLeft },
   { name: "Email Templates", href: "/admin/apps/mark8ly/email-templates", icon: Mail },
