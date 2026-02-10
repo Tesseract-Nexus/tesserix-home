@@ -1,5 +1,6 @@
-import { NextRequest } from 'next/server';
-import { adminFetch, apiError, proxyResponse } from '@/lib/api/admin-fetch';
+import { NextRequest, NextResponse } from 'next/server';
+import { adminFetch, apiError } from '@/lib/api/admin-fetch';
+import { normalizeTicket } from '../../normalize';
 
 export async function PUT(
   request: NextRequest,
@@ -25,7 +26,9 @@ export async function PUT(
       return apiError('Unauthorized', 401);
     }
 
-    return proxyResponse(response);
+    const resBody = await response.json();
+    const ticket = resBody?.data || resBody;
+    return NextResponse.json(normalizeTicket(ticket), { status: response.status });
   } catch (error) {
     console.error('[Ticket Status API] Error:', error);
     return apiError('Failed to update ticket status');

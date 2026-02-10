@@ -1,5 +1,6 @@
-import { NextRequest } from 'next/server';
-import { adminFetch, apiError, proxyResponse } from '@/lib/api/admin-fetch';
+import { NextRequest, NextResponse } from 'next/server';
+import { adminFetch, apiError } from '@/lib/api/admin-fetch';
+import { normalizeTicket } from '../normalize';
 
 export async function GET(
   request: NextRequest,
@@ -20,7 +21,10 @@ export async function GET(
       return apiError('Ticket not found', 404);
     }
 
-    return proxyResponse(response);
+    const body = await response.json();
+    // Go service returns { success, data: { ... } } — unwrap and normalize
+    const ticket = body?.data || body;
+    return NextResponse.json(normalizeTicket(ticket));
   } catch (error) {
     console.error('[Ticket Detail API] Error:', error);
     return apiError('Failed to fetch ticket');
@@ -46,7 +50,9 @@ export async function PUT(
       return apiError('Unauthorized', 401);
     }
 
-    return proxyResponse(response);
+    const resBody = await response.json();
+    const ticket = resBody?.data || resBody;
+    return NextResponse.json(normalizeTicket(ticket), { status: response.status });
   } catch (error) {
     console.error('[Ticket Update API] Error:', error);
     return apiError('Failed to update ticket');

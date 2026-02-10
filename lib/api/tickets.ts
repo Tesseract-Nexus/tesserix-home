@@ -34,7 +34,12 @@ export interface Ticket {
   updated_at?: string;
   due_date?: string;
   assignees?: Array<{ id: string; name: string; email: string }>;
+  attachments?: Array<Record<string, unknown>>;
   comments?: TicketComment[];
+  sla?: Record<string, unknown>;
+  history?: Array<Record<string, unknown>>;
+  metadata?: Record<string, unknown>;
+  updated_by?: string;
   // Populated by joining with tenant data
   tenant_name?: string;
 }

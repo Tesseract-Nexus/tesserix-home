@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminFetch, getSessionContext, apiError, proxyResponse } from '@/lib/api/admin-fetch';
+import { adminFetch, getSessionContext, apiError } from '@/lib/api/admin-fetch';
+import { normalizeTicket } from './normalize';
 
 /**
  * GET /api/tickets
@@ -69,9 +70,9 @@ export async function GET(request: NextRequest) {
 
         const data = await response.json();
         const tickets = Array.isArray(data.data) ? data.data : [];
-        // Attach tenant info to each ticket for display
+        // Normalize camelCase → snake_case and attach tenant info
         return tickets.map((t: Record<string, unknown>) => ({
-          ...t,
+          ...normalizeTicket(t),
           tenant_name: tenant.name || tenant.slug || tid,
           tenant_id: tid,
         }));
@@ -136,7 +137,18 @@ async function fetchTicketsForTenant(
     return apiError('Unauthorized', 401);
   }
 
-  return proxyResponse(response);
+  // Unwrap Go response { success, data: [...], pagination: {...} } and normalize
+  const body = await response.json();
+  const tickets = Array.isArray(body.data) ? body.data : [];
+  const pagination = body.pagination || {};
+
+  return NextResponse.json({
+    data: tickets.map((t: Record<string, unknown>) => normalizeTicket(t)),
+    total: pagination.total || tickets.length,
+    page: pagination.page || parseInt(filters.page),
+    pageSize: pagination.limit || parseInt(filters.limit),
+    totalPages: pagination.totalPages || Math.ceil((pagination.total || tickets.length) / parseInt(filters.limit)),
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -175,7 +187,9 @@ export async function POST(request: NextRequest) {
       return apiError('Unauthorized', 401);
     }
 
-    return proxyResponse(response);
+    const resBody = await response.json();
+    const ticket = resBody?.data || resBody;
+    return NextResponse.json(normalizeTicket(ticket), { status: response.status });
   } catch (error) {
     console.error('[Tickets API] Error:', error);
     return apiError('Failed to create ticket');

@@ -2,7 +2,19 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { Search, Filter, MoreHorizontal, Clock, ChevronRight, Building2 } from "lucide-react";
+import {
+  Search,
+  Filter,
+  MoreHorizontal,
+  Clock,
+  ChevronRight,
+  Building2,
+  AlertCircle,
+  MessageSquare,
+  Tag,
+  Ticket as TicketIcon,
+  User,
+} from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +41,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Card, CardContent } from "@/components/ui/card";
 import { TableSkeleton } from "@/components/admin/table-skeleton";
 import { ErrorState } from "@/components/admin/error-state";
 import { EmptyState } from "@/components/admin/empty-state";
@@ -84,6 +97,21 @@ function useDebounce(value: string, delay: number) {
   return debouncedValue;
 }
 
+function timeAgo(dateStr: string | undefined): string {
+  if (!dateStr) return "-";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 30) return `${diffD}d ago`;
+  return date.toLocaleDateString();
+}
+
 export default function AppTicketsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const appName = APP_NAMES[slug] || slug;
@@ -106,8 +134,17 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
   const total = data?.total ?? 0;
   const totalPages = data?.totalPages ?? Math.ceil(total / 20);
 
-  async function handleStatusChange(ticketId: string, newStatus: string) {
-    const { error } = await updateTicketStatus(ticketId, newStatus);
+  // Compute summary stats from current data
+  const openCount = tickets.filter((t: Ticket) => t.status?.toLowerCase() === "open").length;
+  const inProgressCount = tickets.filter((t: Ticket) =>
+    ["in_progress", "in-progress"].includes(t.status?.toLowerCase())
+  ).length;
+  const criticalCount = tickets.filter((t: Ticket) =>
+    ["critical", "urgent", "high"].includes(t.priority?.toLowerCase())
+  ).length;
+
+  async function handleStatusChange(ticketId: string, newStatus: string, tenantId?: string) {
+    const { error } = await updateTicketStatus(ticketId, newStatus, tenantId);
     if (!error) {
       mutate();
     }
@@ -118,6 +155,7 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
       <AdminHeader
         title="Support Tickets"
         description={`Manage support requests for ${appName}`}
+        icon={<TicketIcon className="h-6 w-6 text-muted-foreground" />}
       />
 
       <main className="p-6 space-y-6">
@@ -130,12 +168,62 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
           <span className="text-foreground font-medium">Tickets</span>
         </nav>
 
+        {/* Summary cards */}
+        {!isLoading && !error && (
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Total</p>
+                    <p className="text-2xl font-bold">{total}</p>
+                  </div>
+                  <TicketIcon className="h-5 w-5 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Open</p>
+                    <p className="text-2xl font-bold text-blue-600">{openCount}</p>
+                  </div>
+                  <AlertCircle className="h-5 w-5 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">In Progress</p>
+                    <p className="text-2xl font-bold text-amber-600">{inProgressCount}</p>
+                  </div>
+                  <Clock className="h-5 w-5 text-amber-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4 pb-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">High Priority</p>
+                    <p className="text-2xl font-bold text-red-600">{criticalCount}</p>
+                  </div>
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search tickets..."
+              placeholder="Search by title, ticket number, or tenant..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="pl-9"
@@ -150,6 +238,7 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="open">Open</SelectItem>
               <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="on_hold">On Hold</SelectItem>
               <SelectItem value="resolved">Resolved</SelectItem>
               <SelectItem value="closed">Closed</SelectItem>
               <SelectItem value="escalated">Escalated</SelectItem>
@@ -177,7 +266,7 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
         ) : tickets.length === 0 ? (
           <EmptyState
             message="No tickets found"
-            description={search ? "Try adjusting your search or filters" : undefined}
+            description={search ? "Try adjusting your search or filters" : "No support tickets have been created yet."}
           />
         ) : (
           <>
@@ -185,39 +274,60 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
+                    <TableHead className="w-28">Ticket</TableHead>
                     <TableHead>Subject</TableHead>
                     <TableHead>Tenant</TableHead>
-                    <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
-                    <TableHead>Last Updated</TableHead>
+                    <TableHead>Updated</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tickets.map((ticket: Ticket) => (
-                    <TableRow key={ticket.id}>
-                      <TableCell className="font-mono text-sm">
-                        {ticket.ticket_number || ticket.id}
-                      </TableCell>
+                    <TableRow key={ticket.id} className="group">
                       <TableCell>
                         <Link
                           href={`/admin/apps/${slug}/tickets/${ticket.id}${ticket.tenant_id ? `?tenantId=${ticket.tenant_id}` : ''}`}
-                          className="font-medium hover:underline"
+                          className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors"
                         >
-                          {ticket.title}
+                          {ticket.ticket_number || ticket.id?.slice(0, 8)}
                         </Link>
-                        {ticket.created_by_name && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            by {ticket.created_by_name}
-                          </p>
-                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Link
+                            href={`/admin/apps/${slug}/tickets/${ticket.id}${ticket.tenant_id ? `?tenantId=${ticket.tenant_id}` : ''}`}
+                            className="font-medium hover:underline line-clamp-1"
+                          >
+                            {ticket.title}
+                          </Link>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            {ticket.created_by_name && (
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {ticket.created_by_name}
+                              </span>
+                            )}
+                            {ticket.type && (
+                              <span className="flex items-center gap-1">
+                                <Tag className="h-3 w-3" />
+                                {ticket.type.toLowerCase().replace(/_/g, " ")}
+                              </span>
+                            )}
+                            {Array.isArray(ticket.comments) && ticket.comments.length > 0 && (
+                              <span className="flex items-center gap-1">
+                                <MessageSquare className="h-3 w-3" />
+                                {ticket.comments.length}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {ticket.tenant_name ? (
                           <div className="flex items-center gap-1.5">
-                            <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <Link
                               href={`/admin/apps/${slug}/${ticket.tenant_id}`}
                               className="text-sm hover:underline truncate max-w-[140px]"
@@ -231,13 +341,6 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
                         )}
                       </TableCell>
                       <TableCell>
-                        {ticket.type && (
-                          <Badge variant="secondary" className="text-xs">
-                            {ticket.type.toLowerCase().replace(/_/g, " ")}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
                         <Badge variant={getStatusColor(ticket.status)}>
                           {formatStatus(ticket.status)}
                         </Badge>
@@ -248,17 +351,16 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {ticket.updated_at
-                            ? new Date(ticket.updated_at).toLocaleDateString()
-                            : "-"}
-                        </div>
+                        <span className="text-sm text-muted-foreground whitespace-nowrap" title={
+                          ticket.updated_at ? new Date(ticket.updated_at).toLocaleString() : undefined
+                        }>
+                          {timeAgo(ticket.updated_at || ticket.created_at)}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
                               <MoreHorizontal className="h-4 w-4" />
                               <span className="sr-only">Actions</span>
                             </Button>
@@ -271,18 +373,26 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {ticket.status?.toLowerCase() === "open" && (
-                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "in_progress")}>
+                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "in_progress", ticket.tenant_id)}>
                                 Mark as In Progress
                               </DropdownMenuItem>
                             )}
-                            {ticket.status?.toLowerCase() === "in_progress" && (
-                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "resolved")}>
+                            {["in_progress", "in-progress"].includes(ticket.status?.toLowerCase()) && (
+                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "resolved", ticket.tenant_id)}>
                                 Mark as Resolved
                               </DropdownMenuItem>
                             )}
                             {ticket.status?.toLowerCase() === "resolved" && (
-                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "closed")}>
+                              <DropdownMenuItem onClick={() => handleStatusChange(ticket.id, "closed", ticket.tenant_id)}>
                                 Close Ticket
+                              </DropdownMenuItem>
+                            )}
+                            {!["escalated", "closed"].includes(ticket.status?.toLowerCase()) && (
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange(ticket.id, "escalated", ticket.tenant_id)}
+                                className="text-destructive"
+                              >
+                                Escalate
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -297,7 +407,7 @@ export default function AppTicketsPage({ params }: { params: Promise<{ slug: str
             {/* Pagination */}
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {tickets.length} of {total} tickets
+                Page {page} of {totalPages || 1} ({total} ticket{total !== 1 ? "s" : ""})
               </p>
               <div className="flex gap-2">
                 <Button

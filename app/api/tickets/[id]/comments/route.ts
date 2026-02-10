@@ -1,5 +1,5 @@
-import { NextRequest } from 'next/server';
-import { adminFetch, apiError, proxyResponse } from '@/lib/api/admin-fetch';
+import { NextRequest, NextResponse } from 'next/server';
+import { adminFetch, apiError } from '@/lib/api/admin-fetch';
 
 export async function POST(
   request: NextRequest,
@@ -28,7 +28,10 @@ export async function POST(
       return apiError('Unauthorized', 401);
     }
 
-    return proxyResponse(response);
+    const resBody = await response.json();
+    // Go returns { success, data: {...} } — unwrap
+    const comment = resBody?.data || resBody;
+    return NextResponse.json(comment, { status: response.status });
   } catch (error) {
     console.error('[Ticket Comments API] Error:', error);
     return apiError('Failed to add comment');
