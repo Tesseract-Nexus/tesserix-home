@@ -14,6 +14,50 @@ const INTERNAL_SERVICE_KEY = process.env.INTERNAL_SERVICE_KEY || '';
 
 export type ServiceName = 'tenant' | 'tickets' | 'auth' | 'settings' | 'subscription' | 'audit' | 'status-dashboard' | 'feature-flags' | 'notification';
 
+/**
+ * Decode a JWT payload without verifying the signature.
+ * Safe for server-side use where the token was already validated by auth-bff.
+ */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = Buffer.from(parts[1], 'base64url').toString('utf-8');
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extract Istio-style x-jwt-claim-* headers from a decoded JWT.
+ * This mimics what the Istio ingress gateway does after JWT validation,
+ * enabling server-to-server calls to pass auth context to Go services
+ * that read these headers via the IstioAuth middleware.
+ */
+function getIstioClaimHeaders(claims: Record<string, unknown>): Record<string, string> {
+  const headers: Record<string, string> = {};
+
+  if (claims.sub) headers['x-jwt-claim-sub'] = String(claims.sub);
+  if (claims.email) headers['x-jwt-claim-email'] = String(claims.email);
+  if (claims.preferred_username) headers['x-jwt-claim-preferred-username'] = String(claims.preferred_username);
+  if (claims.name) headers['x-jwt-claim-name'] = String(claims.name);
+  if (claims.tenant_id) headers['x-jwt-claim-tenant-id'] = String(claims.tenant_id);
+  if (claims.tenant_slug) headers['x-jwt-claim-tenant-slug'] = String(claims.tenant_slug);
+  if (claims.staff_id) headers['x-jwt-claim-staff-id'] = String(claims.staff_id);
+  if (claims.vendor_id) headers['x-jwt-claim-vendor-id'] = String(claims.vendor_id);
+  if (claims.customer_id) headers['x-jwt-claim-customer-id'] = String(claims.customer_id);
+  if (claims.platform_owner) headers['x-jwt-claim-platform-owner'] = String(claims.platform_owner);
+
+  // Keycloak realm_access.roles → comma-separated string
+  const realmAccess = claims.realm_access as { roles?: string[] } | undefined;
+  if (realmAccess?.roles?.length) {
+    headers['x-jwt-claim-roles'] = realmAccess.roles.join(',');
+  }
+
+  return headers;
+}
+
 function getServiceBaseUrl(service: ServiceName): string {
   switch (service) {
     case 'tenant':
@@ -101,7 +145,6 @@ export async function adminFetch(
   const sessionCookie = cookieStore.get('bff_home_session');
 
   if (!sessionCookie) {
-    console.error(`[adminFetch] NO bff_home_session cookie found for ${service}${path}`);
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -112,7 +155,6 @@ export async function adminFetch(
   const tokenData = await getAccessToken(sessionCookie.value);
 
   if (!tokenData) {
-    console.error(`[adminFetch] getAccessToken returned null for ${service}${path}`);
     return new Response(JSON.stringify({ error: 'Session expired' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -121,13 +163,20 @@ export async function adminFetch(
 
   const baseUrl = getServiceBaseUrl(service);
   const url = `${baseUrl}${path}`;
-  console.log(`[adminFetch] ${service}${path} → ${url} (token user: ${tokenData.user_id})`);
 
   const { tenantId, headers: extraHeaders, ...fetchOptions } = options;
+
+  // Decode JWT to extract claims for Istio-style headers.
+  // Go backend services use x-jwt-claim-* headers (normally set by Istio ingress
+  // after JWT validation). Since we're calling services directly (server-to-server),
+  // we must set these headers ourselves.
+  const jwtClaims = decodeJwtPayload(tokenData.access_token);
+  const istioHeaders = jwtClaims ? getIstioClaimHeaders(jwtClaims) : {};
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${tokenData.access_token}`,
+    ...istioHeaders,
     ...extraHeaders,
   };
 
@@ -138,17 +187,12 @@ export async function adminFetch(
     headers['X-Tenant-ID'] = tokenData.tenant_id;
   }
 
-  try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-    });
-    console.log(`[adminFetch] ${service}${path} → status ${response.status}`);
-    return response;
-  } catch (fetchError) {
-    console.error(`[adminFetch] fetch error for ${service}${path}:`, fetchError);
-    throw fetchError;
-  }
+  const response = await fetch(url, {
+    ...fetchOptions,
+    headers,
+  });
+
+  return response;
 }
 
 /**
