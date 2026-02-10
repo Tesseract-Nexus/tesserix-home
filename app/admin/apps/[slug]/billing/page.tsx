@@ -1306,7 +1306,7 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
             <div>
               <h2 className="text-lg font-semibold">Subscription Plans</h2>
               <p className="text-sm text-muted-foreground">
-                {plans ? `${plans.length} plans configured` : "Loading plans..."}
+                {plans ? `${sortedPlans.length} active plans` : "Loading plans..."}
               </p>
             </div>
             <div className="flex items-center gap-2">
