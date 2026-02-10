@@ -12,7 +12,7 @@ export default function AdminLayout({
     <AuthProvider>
       <div className="min-h-screen bg-background">
         <AdminSidebar />
-        <div className="lg:pl-64">
+        <div className="lg:pl-72">
           {children}
         </div>
       </div>

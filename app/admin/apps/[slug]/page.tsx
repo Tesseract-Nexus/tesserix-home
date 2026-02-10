@@ -1,274 +1,282 @@
 "use client";
 
-import { useState, useMemo, use } from "react";
+import { use } from "react";
 import Link from "next/link";
-import { Search, Filter, MoreHorizontal, ExternalLink, ChevronRight, Globe } from "lucide-react";
+import {
+  Users,
+  Ticket,
+  FileText,
+  CreditCard,
+  ToggleLeft,
+  Mail,
+  ArrowRight,
+  Building2,
+} from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { TableSkeleton } from "@/components/admin/table-skeleton";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatsCard } from "@/components/admin/stats-card";
 import { ErrorState } from "@/components/admin/error-state";
-import { EmptyState } from "@/components/admin/empty-state";
 import { useTenants, type Tenant } from "@/lib/api/tenants";
-
-const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || "tesserix.app";
+import { useTickets, type Ticket as TicketType } from "@/lib/api/tickets";
 
 const APP_NAMES: Record<string, string> = {
   mark8ly: "Mark8ly",
 };
 
+const APP_DESCRIPTIONS: Record<string, string> = {
+  mark8ly: "Multi-tenant e-commerce marketplace platform",
+};
+
 function getStatusColor(status: string) {
   switch (status?.toLowerCase()) {
     case "active":
+    case "resolved":
       return "success";
     case "pending":
+    case "in_progress":
+    case "in-progress":
       return "warning";
-    case "suspended":
-      return "destructive";
+    case "open":
+      return "info";
     default:
       return "secondary";
   }
 }
 
-function useDebounce(value: string, delay: number) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useMemo(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debouncedValue;
+function getPriorityColor(priority: string) {
+  switch (priority?.toLowerCase()) {
+    case "high":
+    case "critical":
+    case "urgent":
+      return "destructive";
+    case "medium":
+      return "warning";
+    case "low":
+      return "secondary";
+    default:
+      return "secondary";
+  }
 }
 
-export default function AppTenantsPage({ params }: { params: Promise<{ slug: string }> }) {
+function StatsLoadingSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Card key={i}>
+          <CardHeader className="pb-2">
+            <Skeleton className="h-4 w-24" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-8 w-16" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function RecentListSkeleton() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex items-center justify-between">
+          <div className="space-y-1">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+          <Skeleton className="h-5 w-16 rounded-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function AppOverviewPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const appName = APP_NAMES[slug] || slug;
+  const appDescription = APP_DESCRIPTIONS[slug] || "";
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const debouncedSearch = useDebounce(search, 300);
+  const { data: tenantsData, isLoading: tenantsLoading, error: tenantsError, mutate: mutateTenants } = useTenants({ limit: 5 });
+  const { data: ticketsData, isLoading: ticketsLoading, error: ticketsError, mutate: mutateTickets } = useTickets({ limit: 5 });
+  const { data: openTicketsData } = useTickets({ status: "open", limit: 1 });
 
-  const { data, isLoading, error, mutate } = useTenants({
-    search: debouncedSearch || undefined,
-    status: statusFilter !== "all" ? statusFilter : undefined,
-    page,
-    limit: 20,
-  });
+  const totalTenants = tenantsData?.total ?? 0;
+  const openTickets = openTicketsData?.total ?? 0;
+  const recentTenants = tenantsData?.data ?? [];
+  const recentTickets = ticketsData?.data ?? [];
 
-  const tenants = data?.data ?? [];
-  const total = data?.total ?? 0;
-  const pageSize = data?.pageSize ?? 20;
-  const totalPages = Math.ceil(total / pageSize);
+  const quickLinks = [
+    { name: "Tenants", href: `/admin/apps/${slug}/tenants`, icon: Users, description: "Manage stores" },
+    { name: "Tickets", href: `/admin/apps/${slug}/tickets`, icon: Ticket, description: "Support requests" },
+    { name: "Content", href: `/admin/apps/${slug}/content`, icon: FileText, description: "Page management" },
+    { name: "Billing", href: `/admin/apps/${slug}/billing`, icon: CreditCard, description: "Subscription plans" },
+    { name: "Feature Flags", href: `/admin/apps/${slug}/feature-flags`, icon: ToggleLeft, description: "Flags & experiments" },
+    { name: "Email Templates", href: `/admin/apps/${slug}/email-templates`, icon: Mail, description: "Notification templates" },
+  ];
 
   return (
     <>
       <AdminHeader
-        title={`${appName} Tenants`}
-        description={`Manage tenants for ${appName}`}
+        title={appName}
+        description={appDescription}
       />
 
       <main className="p-6 space-y-6">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Link href="/admin/apps" className="hover:text-foreground transition-colors">
-            Apps
-          </Link>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-foreground font-medium">{appName}</span>
-        </nav>
-
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search tenants..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="pl-9"
+        {/* Stats */}
+        {tenantsLoading || ticketsLoading ? (
+          <StatsLoadingSkeleton />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatsCard
+              title="Total Tenants"
+              value={totalTenants}
+              description="Active stores"
+              icon={<Building2 className="h-4 w-4" />}
+            />
+            <StatsCard
+              title="Open Tickets"
+              value={openTickets}
+              description="Requires attention"
+              icon={<Ticket className="h-4 w-4" />}
+            />
+            <StatsCard
+              title="Recent Activity"
+              value={recentTenants.length + recentTickets.length}
+              description="Latest events"
+              icon={<Users className="h-4 w-4" />}
             />
           </div>
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-full sm:w-40">
-              <Filter className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="suspended">Suspended</SelectItem>
-            </SelectContent>
-          </Select>
+        )}
+
+        {/* Quick Links */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground mb-3">Quick Links</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {quickLinks.map((link) => (
+              <Link key={link.name} href={link.href}>
+                <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                      <link.icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{link.name}</p>
+                      <p className="text-xs text-muted-foreground">{link.description}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
         </div>
 
-        {/* Content */}
-        {isLoading ? (
-          <TableSkeleton columns={7} rows={5} />
-        ) : error ? (
-          <ErrorState message={error} onRetry={mutate} />
-        ) : tenants.length === 0 ? (
-          <EmptyState
-            message="No tenants found"
-            description={search ? "Try adjusting your search or filters" : undefined}
-          />
-        ) : (
-          <>
-            {/* Table */}
-            <div className="rounded-lg border bg-card">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Domain</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="w-10"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tenants.map((tenant: Tenant) => (
-                    <TableRow key={tenant.id}>
-                      <TableCell>
+        {/* Recent Activity */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Recent Tenants */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Recent Stores</CardTitle>
+                <CardDescription>Newly onboarded businesses</CardDescription>
+              </div>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/admin/apps/${slug}/tenants`}>
+                  View all
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {tenantsLoading ? (
+                <RecentListSkeleton />
+              ) : tenantsError ? (
+                <ErrorState message={tenantsError} onRetry={mutateTenants} />
+              ) : recentTenants.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No stores yet</p>
+              ) : (
+                <div className="space-y-4">
+                  {recentTenants.map((tenant: Tenant) => (
+                    <div
+                      key={tenant.id}
+                      className="flex items-center justify-between"
+                    >
+                      <div>
                         <Link
                           href={`/admin/apps/${slug}/${tenant.id}`}
                           className="font-medium hover:underline"
                         >
                           {tenant.name}
                         </Link>
-                        <p className="text-sm text-muted-foreground">{tenant.slug}</p>
-                      </TableCell>
-                      <TableCell>
-                        {tenant.custom_domain && tenant.use_custom_domain ? (
-                          <a
-                            href={`https://${tenant.custom_domain}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-primary hover:underline text-sm"
-                          >
-                            <Globe className="h-3 w-3" />
-                            {tenant.custom_domain}
-                          </a>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">
-                            {tenant.slug}.{BASE_DOMAIN}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>{tenant.email || "-"}</TableCell>
-                      <TableCell>
-                        {tenant.status && (
-                          <Badge variant={getStatusColor(tenant.status)}>
-                            {tenant.status}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {tenant.plan ? (
-                          <Badge variant="secondary">{tenant.plan}</Badge>
-                        ) : "-"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {tenant.created_at
-                          ? new Date(tenant.created_at).toLocaleDateString()
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/admin/apps/${slug}/${tenant.id}`}>
-                                View Details
-                              </Link>
-                            </DropdownMenuItem>
-                            {tenant.slug && (
-                              <DropdownMenuItem asChild>
-                                <a
-                                  href={`https://${tenant.slug}.${BASE_DOMAIN}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <ExternalLink className="mr-2 h-4 w-4" />
-                                  Visit Store
-                                </a>
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            {tenant.status === "active" ? (
-                              <DropdownMenuItem className="text-destructive">
-                                Suspend Tenant
-                              </DropdownMenuItem>
-                            ) : tenant.status === "suspended" ? (
-                              <DropdownMenuItem>
-                                Activate Tenant
-                              </DropdownMenuItem>
-                            ) : null}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                        <p className="text-sm text-muted-foreground">
+                          {tenant.slug}
+                        </p>
+                      </div>
+                      {tenant.status && (
+                        <Badge variant={getStatusColor(tenant.status)}>
+                          {tenant.status}
+                        </Badge>
+                      )}
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
-            </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            {/* Pagination */}
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Showing {tenants.length} of {total} tenants
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage(page - 1)}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage(page + 1)}
-                >
-                  Next
-                </Button>
+          {/* Recent Tickets */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Recent Tickets</CardTitle>
+                <CardDescription>Support requests from tenants</CardDescription>
               </div>
-            </div>
-          </>
-        )}
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/admin/apps/${slug}/tickets`}>
+                  View all
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {ticketsLoading ? (
+                <RecentListSkeleton />
+              ) : ticketsError ? (
+                <ErrorState message={ticketsError} onRetry={mutateTickets} />
+              ) : recentTickets.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No tickets yet</p>
+              ) : (
+                <div className="space-y-4">
+                  {recentTickets.map((ticket: TicketType) => (
+                    <div
+                      key={ticket.id}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          href={`/admin/apps/${slug}/tickets/${ticket.id}`}
+                          className="font-medium hover:underline block truncate"
+                        >
+                          {ticket.title}
+                        </Link>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant={getStatusColor(ticket.status)} className="text-xs">
+                            {ticket.status?.toLowerCase().replace(/_/g, " ")}
+                          </Badge>
+                          <Badge variant={getPriorityColor(ticket.priority)} className="text-xs">
+                            {ticket.priority?.toLowerCase()}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </>
   );

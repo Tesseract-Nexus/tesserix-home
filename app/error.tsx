@@ -33,7 +33,7 @@ export default function Error({
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button onClick={reset}>Try Again</Button>
           <Button variant="outline" asChild>
-            <a href="/">Go Home</a>
+            <a href="/admin/dashboard">Go to Dashboard</a>
           </Button>
         </div>
       </div>

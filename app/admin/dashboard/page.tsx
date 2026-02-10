@@ -190,7 +190,7 @@ export default function DashboardPage() {
                 <CardDescription>Support requests from tenants</CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/admin/tickets">
+                <Link href="/admin/apps/mark8ly/tickets">
                   View all
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -212,7 +212,7 @@ export default function DashboardPage() {
                     >
                       <div className="flex-1 min-w-0">
                         <Link
-                          href={`/admin/tickets/${ticket.id}`}
+                          href={`/admin/apps/mark8ly/tickets/${ticket.id}`}
                           className="font-medium hover:underline block truncate"
                         >
                           {ticket.title}
