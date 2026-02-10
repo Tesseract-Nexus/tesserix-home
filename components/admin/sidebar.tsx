@@ -42,6 +42,7 @@ const platformNav: NavItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "System Health", href: "/admin/system-health", icon: Activity },
   { name: "Releases", href: "/admin/releases", icon: Rocket },
+  { name: "Email Templates", href: "/admin/email-templates", icon: Mail },
   { name: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];

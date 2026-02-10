@@ -19,8 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "./status-badge";
 import { VersionChips } from "./version-chips";
-import { promoteService, type ServiceInfo, type BuildStatus } from "@/lib/api/releases";
-import type { ServiceType } from "@/lib/releases/services";
+import { promoteService, promoteGroup, type ServiceInfo, type BuildStatus } from "@/lib/api/releases";
+import type { ServiceType, AppGroup } from "@/lib/releases/services";
 
 type TypeFilter = "all" | ServiceType;
 
@@ -69,7 +69,15 @@ function FilterChip({
 interface RepoGroup {
   repo: string;
   repoShort: string;
+  appGroup: AppGroup | null;
   services: ServiceInfo[];
+}
+
+function resolveAppGroup(repoShort: string): AppGroup | null {
+  if (repoShort === "marketplace-services" || repoShort === "marketplace-clients")
+    return "mark8ly";
+  if (repoShort === "global-services") return "global";
+  return null;
 }
 
 function groupByRepo(services: ServiceInfo[]): RepoGroup[] {
@@ -79,11 +87,15 @@ function groupByRepo(services: ServiceInfo[]): RepoGroup[] {
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(svc);
   }
-  return Array.from(map.entries()).map(([repo, svcs]) => ({
-    repo,
-    repoShort: repo.split("/").pop() ?? repo,
-    services: svcs,
-  }));
+  return Array.from(map.entries()).map(([repo, svcs]) => {
+    const repoShort = repo.split("/").pop() ?? repo;
+    return {
+      repo,
+      repoShort,
+      appGroup: resolveAppGroup(repoShort),
+      services: svcs,
+    };
+  });
 }
 
 function repoGroupStatus(services: ServiceInfo[]): BuildStatus {
@@ -296,6 +308,107 @@ function ServiceRow({
   );
 }
 
+function InlineGroupPromote({
+  appGroup,
+  groupLabel,
+  serviceCount,
+  onClose,
+  onSuccess,
+}: {
+  appGroup: AppGroup;
+  groupLabel: string;
+  serviceCount: number;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [version, setVersion] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{
+    succeeded: string[];
+    failed: string[];
+  } | null>(null);
+
+  const handleSubmit = async () => {
+    if (!version) return;
+    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+      setError("Version must be in semver format (e.g. 1.2.3)");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+    const res = await promoteGroup(appGroup, version);
+    setIsSubmitting(false);
+    if (res.error) {
+      setError(res.error);
+    } else if (res.data) {
+      setResult({ succeeded: res.data.succeeded, failed: res.data.failed });
+      onSuccess();
+    }
+  };
+
+  if (result) {
+    return (
+      <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3 mx-4 mb-4 space-y-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <p className="text-sm font-medium">
+              Tagged {result.succeeded.length}/{result.succeeded.length + result.failed.length} services with v{version}
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        {result.failed.length > 0 && (
+          <p className="text-xs text-destructive">
+            Failed: {result.failed.join(", ")}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3 mx-4 mb-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">
+          Tag all {serviceCount} {groupLabel} services
+        </p>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder="1.2.3"
+          value={version}
+          onChange={(e) => {
+            setVersion(e.target.value);
+            setError(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSubmit();
+            if (e.key === "Escape") onClose();
+          }}
+          className="font-mono h-8 max-w-[160px]"
+          autoFocus
+        />
+        <Button size="sm" onClick={handleSubmit} disabled={!version || isSubmitting} className="h-8">
+          {isSubmitting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+          ) : (
+            <Rocket className="h-3.5 w-3.5 mr-1" />
+          )}
+          Tag All
+        </Button>
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
 function RepoGroupSection({
   group,
   activePromote,
@@ -310,18 +423,20 @@ function RepoGroupSection({
   defaultExpanded: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const [groupPromoteOpen, setGroupPromoteOpen] = useState(false);
   const status = repoGroupStatus(group.services);
   const failed = group.services.filter(
     (s) => s.latestBuild?.status === "failure"
   ).length;
+  const isMark8ly = group.appGroup === "mark8ly";
 
   return (
     <Card>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between p-4 text-left hover:bg-muted/30 transition-colors rounded-t-lg"
-      >
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between p-4">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-3 text-left hover:opacity-80 transition-opacity"
+        >
           {expanded ? (
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           ) : (
@@ -331,7 +446,7 @@ function RepoGroupSection({
           <span className="text-xs text-muted-foreground">
             {group.services.length} services
           </span>
-        </div>
+        </button>
         <div className="flex items-center gap-2">
           {failed > 0 && (
             <Badge variant="destructive">{failed} failed</Badge>
@@ -342,8 +457,34 @@ function RepoGroupSection({
           {status === "in_progress" && (
             <Badge variant="warning">Building</Badge>
           )}
+          {isMark8ly && (
+            <Button
+              variant={groupPromoteOpen ? "default" : "outline"}
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setGroupPromoteOpen(!groupPromoteOpen);
+              }}
+              className="h-7 text-xs"
+            >
+              <Rocket className="h-3 w-3 mr-1" />
+              Tag All
+            </Button>
+          )}
         </div>
-      </button>
+      </div>
+
+      {/* Group promote panel */}
+      {groupPromoteOpen && group.appGroup && (
+        <InlineGroupPromote
+          appGroup={group.appGroup}
+          groupLabel={group.repoShort}
+          serviceCount={group.services.length}
+          onClose={() => setGroupPromoteOpen(false)}
+          onSuccess={onPromoteSuccess}
+        />
+      )}
+
       {expanded && (
         <CardContent className="pt-0 pb-4 px-4">
           <div className="space-y-2">

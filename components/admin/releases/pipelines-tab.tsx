@@ -1,8 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ExternalLink, Clock } from "lucide-react";
+import {
+  ExternalLink,
+  Clock,
+  RotateCcw,
+  RefreshCw,
+  Play,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -13,7 +22,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge, WorkflowTypeBadge } from "./status-badge";
-import type { PipelineRun } from "@/lib/api/releases";
+import {
+  rerunPipeline,
+  syncService,
+  rolloutService,
+  type PipelineRun,
+} from "@/lib/api/releases";
+import { SERVICE_REGISTRY } from "@/lib/releases/services";
 
 type StatusFilter = "all" | "success" | "failure" | "in_progress";
 
@@ -67,51 +82,173 @@ function relativeTime(dateStr: string): string {
   return `${days}d ago`;
 }
 
-function PipelineRow({ run }: { run: PipelineRun }) {
+/** Resolve service internal name from display name shown in pipeline. */
+function resolveInternalName(displayName: string): string | null {
+  const svc = SERVICE_REGISTRY.find((s) => s.displayName === displayName);
+  return svc?.name ?? null;
+}
+
+/** Extract short repo name from run URL. */
+function extractRepoName(runUrl: string): string | null {
+  const match = runUrl.match(/github\.com\/[^/]+\/([^/]+)/);
+  return match?.[1] ?? null;
+}
+
+type ActionState = "idle" | "loading" | "success" | "error";
+
+function ActionButton({
+  icon: Icon,
+  label,
+  onClick,
+  variant = "ghost",
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => Promise<void>;
+  variant?: "ghost" | "outline";
+}) {
+  const [state, setState] = useState<ActionState>("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleClick = async () => {
+    setState("loading");
+    setErrorMsg("");
+    try {
+      await onClick();
+      setState("success");
+      setTimeout(() => setState("idle"), 3000);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed");
+      setState("error");
+      setTimeout(() => setState("idle"), 4000);
+    }
+  };
+
   return (
-    <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/30 transition-colors">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-sm truncate">
-              {run.serviceName}
+    <Button
+      variant={variant}
+      size="sm"
+      onClick={handleClick}
+      disabled={state === "loading"}
+      className="h-7 text-xs gap-1"
+      title={state === "error" ? errorMsg : label}
+    >
+      {state === "loading" ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : state === "success" ? (
+        <CheckCircle2 className="h-3 w-3 text-green-500" />
+      ) : (
+        <Icon className="h-3 w-3" />
+      )}
+      {label}
+    </Button>
+  );
+}
+
+function PipelineRow({
+  run,
+  onRefresh,
+}: {
+  run: PipelineRun;
+  onRefresh: () => void;
+}) {
+  const internalName = resolveInternalName(run.serviceName);
+  const repoName = extractRepoName(run.runUrl);
+  const canRerun =
+    run.status === "failure" || run.status === "cancelled" || run.status === "success";
+  const canSync = !!internalName;
+  const canRollout = !!internalName;
+
+  return (
+    <div className="rounded-lg border p-3 hover:bg-muted/30 transition-colors space-y-2">
+      {/* Main row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-sm truncate">
+                {run.serviceName}
+              </p>
+              <WorkflowTypeBadge type={run.workflowType} />
+            </div>
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              {run.displayTitle}
             </p>
-            <WorkflowTypeBadge type={run.workflowType} />
           </div>
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {run.displayTitle}
-          </p>
+        </div>
+
+        <div className="flex items-center gap-4 shrink-0">
+          <StatusBadge status={run.status} />
+
+          <div className="text-right hidden sm:block min-w-[80px]">
+            <p className="text-xs text-muted-foreground">
+              {relativeTime(run.createdAt)}
+            </p>
+            {run.duration !== null && (
+              <div className="flex items-center gap-1 justify-end">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">
+                  {formatDuration(run.duration)}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <a
+            href={run.commitUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {run.commitSha}
+            <ExternalLink className="h-3 w-3" />
+          </a>
         </div>
       </div>
 
-      <div className="flex items-center gap-4 shrink-0">
-        {/* Status */}
-        <StatusBadge status={run.status} />
-
-        {/* Time */}
-        <div className="text-right hidden sm:block min-w-[80px]">
-          <p className="text-xs text-muted-foreground">
-            {relativeTime(run.createdAt)}
-          </p>
-          {run.duration !== null && (
-            <div className="flex items-center gap-1 justify-end">
-              <Clock className="h-3 w-3 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">
-                {formatDuration(run.duration)}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Commit */}
+      {/* Action buttons */}
+      <div className="flex items-center gap-1.5 border-t pt-2">
+        {canRerun && repoName && (
+          <ActionButton
+            icon={RotateCcw}
+            label="Re-run"
+            onClick={async () => {
+              const res = await rerunPipeline(run.id, repoName);
+              if (res.error) throw new Error(res.error);
+              onRefresh();
+            }}
+          />
+        )}
+        {canSync && (
+          <ActionButton
+            icon={RefreshCw}
+            label="Sync"
+            onClick={async () => {
+              const res = await syncService(internalName);
+              if (res.error) throw new Error(res.error);
+            }}
+          />
+        )}
+        {canRollout && (
+          <ActionButton
+            icon={Play}
+            label="Rollout"
+            onClick={async () => {
+              const res = await rolloutService(internalName);
+              if (res.error) throw new Error(res.error);
+            }}
+          />
+        )}
         <a
-          href={run.commitUrl}
+          href={run.runUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="ml-auto"
         >
-          {run.commitSha}
-          <ExternalLink className="h-3 w-3" />
+          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+            <ExternalLink className="h-3 w-3" />
+            GitHub
+          </Button>
         </a>
       </div>
     </div>
@@ -127,21 +264,25 @@ export function PipelinesTabSkeleton() {
         ))}
       </div>
       {Array.from({ length: 8 }).map((_, i) => (
-        <Skeleton key={i} className="h-16" />
+        <Skeleton key={i} className="h-20" />
       ))}
     </div>
   );
 }
 
-export function PipelinesTab({ pipelines }: { pipelines: PipelineRun[] }) {
+export function PipelinesTab({
+  pipelines,
+  onRefresh,
+}: {
+  pipelines: PipelineRun[];
+  onRefresh: () => void;
+}) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [repoFilter, setRepoFilter] = useState("all");
 
-  // Available repos
   const repos = useMemo(() => {
     const set = new Set<string>();
     for (const p of pipelines) {
-      // Extract short repo name from commit URL or run URL
       const match = p.runUrl.match(/github\.com\/[^/]+\/([^/]+)/);
       if (match) set.add(match[1]);
     }
@@ -202,7 +343,7 @@ export function PipelinesTab({ pipelines }: { pipelines: PipelineRun[] }) {
       ) : (
         <div className="space-y-2">
           {filtered.map((run) => (
-            <PipelineRow key={run.id} run={run} />
+            <PipelineRow key={run.id} run={run} onRefresh={onRefresh} />
           ))}
         </div>
       )}

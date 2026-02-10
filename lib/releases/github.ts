@@ -139,3 +139,13 @@ export async function dispatchWorkflow(
     body: JSON.stringify({ ref: "main", inputs: { tag } }),
   });
 }
+
+export async function rerunWorkflow(
+  fullRepo: string,
+  runId: number
+): Promise<void> {
+  const { owner, repo } = parseRepo(fullRepo);
+  await ghFetch(`/repos/${owner}/${repo}/actions/runs/${runId}/rerun`, {
+    method: "POST",
+  });
+}

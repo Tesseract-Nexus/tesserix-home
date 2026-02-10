@@ -1,10 +1,20 @@
-import { redirect } from "next/navigation";
+"use client";
 
-export default async function EmailTemplateDetailRedirect({
+import { use } from "react";
+import { TemplateEditorPage } from "@/components/admin/email-templates/template-editor-page";
+
+export default function PlatformEmailTemplateEditorPageWrapper({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-  redirect(`/admin/apps/mark8ly/email-templates/${id}`);
+  const { id } = use(params);
+
+  return (
+    <TemplateEditorPage
+      scope="platform"
+      basePath="/admin/email-templates"
+      templateId={id}
+    />
+  );
 }

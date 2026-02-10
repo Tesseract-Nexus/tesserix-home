@@ -1,7 +1,7 @@
 "use client";
 
 import { useApi, apiFetch } from "./use-api";
-import type { ServiceType } from "@/lib/releases/services";
+import type { ServiceType, AppGroup } from "@/lib/releases/services";
 
 // ---------- Response types ----------
 
@@ -108,5 +108,46 @@ export async function promoteService(
   return apiFetch<PromoteResponse>("/api/releases/promote", {
     method: "POST",
     body: JSON.stringify({ serviceName, version }),
+  });
+}
+
+export async function promoteGroup(
+  appGroup: AppGroup,
+  version: string
+): Promise<{
+  data?: { success: boolean; succeeded: string[]; failed: string[] };
+  error?: string;
+}> {
+  return apiFetch("/api/releases/promote-group", {
+    method: "POST",
+    body: JSON.stringify({ appGroup, version }),
+  });
+}
+
+export async function rerunPipeline(
+  runId: number,
+  repo: string
+): Promise<{ data?: { success: boolean }; error?: string }> {
+  return apiFetch("/api/releases/pipelines/rerun", {
+    method: "POST",
+    body: JSON.stringify({ runId, repo }),
+  });
+}
+
+export async function syncService(
+  serviceName: string
+): Promise<{ data?: { success: boolean }; error?: string }> {
+  return apiFetch("/api/releases/sync", {
+    method: "POST",
+    body: JSON.stringify({ serviceName }),
+  });
+}
+
+export async function rolloutService(
+  serviceName: string
+): Promise<{ data?: { success: boolean }; error?: string }> {
+  return apiFetch("/api/releases/rollout", {
+    method: "POST",
+    body: JSON.stringify({ serviceName }),
   });
 }

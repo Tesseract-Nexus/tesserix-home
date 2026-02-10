@@ -121,7 +121,10 @@ export default function ReleasesPage() {
                 onRetry={refreshPipelines}
               />
             ) : (
-              <PipelinesTab pipelines={pipelinesData?.data ?? []} />
+              <PipelinesTab
+                pipelines={pipelinesData?.data ?? []}
+                onRefresh={handleRefresh}
+              />
             )}
           </TabsContent>
         </Tabs>

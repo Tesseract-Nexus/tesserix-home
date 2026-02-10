@@ -1,6 +1,7 @@
 "use client";
 
 import { useApi, apiFetch } from './use-api';
+import { type TemplateScope, getCategoryValues } from './email-template-categories';
 
 export type TemplateStatus = 'active' | 'inactive' | 'draft';
 export type NotificationStatus = 'pending' | 'sent' | 'failed' | 'bounced';
@@ -9,11 +10,14 @@ export interface EmailTemplate {
   id: string;
   name: string;
   type: string;
+  category?: string;
   subject: string;
+  description?: string;
   html_body: string;
   text_body?: string;
   variables?: string[];
   status: TemplateStatus;
+  is_system?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -55,6 +59,12 @@ export function useEmailTemplates() {
   return useApi<EmailTemplate[]>('/api/email-templates');
 }
 
+export function useEmailTemplatesByScope(scope: TemplateScope) {
+  const categories = getCategoryValues(scope);
+  const params = categories.map((c) => `category=${encodeURIComponent(c)}`).join('&');
+  return useApi<EmailTemplate[]>(`/api/email-templates?${params}`);
+}
+
 export function useEmailTemplate(id: string | null) {
   return useApi<EmailTemplate>(id ? `/api/email-templates/${id}` : null);
 }
@@ -86,6 +96,12 @@ export async function updateTemplate(id: string, data: Partial<EmailTemplate>) {
 export async function deleteTemplate(id: string) {
   return apiFetch(`/api/email-templates/${id}`, {
     method: 'DELETE',
+  });
+}
+
+export async function duplicateTemplate(id: string) {
+  return apiFetch<EmailTemplate>(`/api/email-templates/${id}/duplicate`, {
+    method: 'POST',
   });
 }
 

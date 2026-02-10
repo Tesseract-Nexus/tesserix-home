@@ -1,4 +1,5 @@
 export type ServiceType = "backend" | "frontend";
+export type AppGroup = "mark8ly" | "global";
 
 export interface ServiceConfig {
   name: string;
@@ -8,11 +9,18 @@ export interface ServiceConfig {
   buildWorkflow: string;
   releaseWorkflow: string;
   imageRepo: string;
+  argoApp: string;
+  namespace: string;
+  appGroup: AppGroup;
 }
 
 const OWNER = "Tesseract-Nexus";
 
-function globalService(name: string, displayName: string): ServiceConfig {
+function globalService(
+  name: string,
+  displayName: string,
+  overrides?: { argoApp?: string; namespace?: string }
+): ServiceConfig {
   return {
     name,
     displayName,
@@ -21,6 +29,9 @@ function globalService(name: string, displayName: string): ServiceConfig {
     buildWorkflow: `${name}-build.yml`,
     releaseWorkflow: `${name}-release.yml`,
     imageRepo: `ghcr.io/${OWNER.toLowerCase()}/global-services/${name}`,
+    argoApp: overrides?.argoApp ?? name,
+    namespace: overrides?.namespace ?? "marketplace",
+    appGroup: "global",
   };
 }
 
@@ -33,6 +44,9 @@ function marketplaceService(name: string, displayName: string): ServiceConfig {
     buildWorkflow: `${name}-build.yml`,
     releaseWorkflow: `${name}-release.yml`,
     imageRepo: `ghcr.io/${OWNER.toLowerCase()}/marketplace-services/${name}`,
+    argoApp: name,
+    namespace: "marketplace",
+    appGroup: "mark8ly",
   };
 }
 
@@ -45,6 +59,9 @@ function clientApp(name: string, displayName: string): ServiceConfig {
     buildWorkflow: `${name}-build.yml`,
     releaseWorkflow: `${name}-release.yml`,
     imageRepo: `ghcr.io/${OWNER.toLowerCase()}/marketplace-clients/${name}`,
+    argoApp: name,
+    namespace: "marketplace",
+    appGroup: "mark8ly",
   };
 }
 
@@ -57,7 +74,10 @@ export const SERVICE_REGISTRY: ServiceConfig[] = [
   globalService("location-service", "Location Service"),
   globalService("tenant-service", "Tenant Service"),
   globalService("verification-service", "Verification Service"),
-  globalService("translation-service", "Translation Service"),
+  globalService("translation-service", "Translation Service", {
+    argoApp: "bergamot-service",
+    namespace: "translation",
+  }),
   globalService("analytics-service", "Analytics Service"),
   globalService("audit-service", "Audit Service"),
   globalService("feature-flags-service", "Feature Flags Service"),
@@ -81,15 +101,17 @@ export const SERVICE_REGISTRY: ServiceConfig[] = [
   clientApp("tenant-onboarding", "Tenant Onboarding"),
 ];
 
-/** Unique repos that have workflows (excludes MFEs with empty repo). */
+/** Unique repos that have workflows. */
 export const REPOS_WITH_WORKFLOWS = [
-  ...new Set(
-    SERVICE_REGISTRY.filter((s) => s.repo).map((s) => s.repo)
-  ),
+  ...new Set(SERVICE_REGISTRY.filter((s) => s.repo).map((s) => s.repo)),
 ];
 
 export function getServiceByName(name: string): ServiceConfig | undefined {
   return SERVICE_REGISTRY.find((s) => s.name === name);
+}
+
+export function getServicesByAppGroup(group: AppGroup): ServiceConfig[] {
+  return SERVICE_REGISTRY.filter((s) => s.appGroup === group);
 }
 
 /** Parse "Owner/repo" into { owner, repo }. */
