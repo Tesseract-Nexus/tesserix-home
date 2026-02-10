@@ -98,7 +98,7 @@ export function subscriptionToPaymentPlan(sub: SubscriptionPlan): Partial<Paymen
     currency: "AUD",
     billingCycle: "monthly",
     trialDays: sub.trialDays,
-    description: sub.description || null,
+    tagline: sub.description || null,
     active: sub.isActive,
     sortOrder: sub.sortOrder,
   };

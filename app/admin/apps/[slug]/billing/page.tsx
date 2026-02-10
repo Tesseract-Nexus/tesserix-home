@@ -407,16 +407,19 @@ function PlanFormDialog({
             </div>
           </div>
 
-          {/* Description */}
+          {/* Description / Tagline */}
           <div className="space-y-2">
-            <Label htmlFor="plan-description">Description</Label>
+            <Label htmlFor="plan-description">Tagline</Label>
             <Textarea
               id="plan-description"
-              placeholder="Short description of this plan"
+              placeholder="e.g. Everything you need to get started"
               value={form.description}
               onChange={(e) => updateField("description", e.target.value)}
               className="min-h-[60px]"
             />
+            <p className="text-xs text-muted-foreground">
+              Shown as subtitle on the pricing page when synced.
+            </p>
           </div>
 
           {/* Pricing */}
@@ -1192,8 +1195,17 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
       const activePlans = plans.filter((p) => p.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
       let created = 0;
 
+      // Auto-determine featured plan (highest-priced non-enterprise plan, or middle plan)
+      const paidPlans = activePlans.filter((p) => !p.isFree && p.monthlyPriceCents > 0);
+      const featuredPlan = paidPlans.length > 0
+        ? paidPlans.reduce((best, p) => p.monthlyPriceCents > best.monthlyPriceCents ? p : best)
+        : null;
+
       for (const sub of activePlans) {
-        const mapped = subscriptionToPaymentPlan(sub);
+        const mapped = {
+          ...subscriptionToPaymentPlan(sub),
+          featured: featuredPlan?.id === sub.id,
+        };
         const { data: result, error: createErr } = await createOnboardingItem("payment-plans", mapped);
         if (createErr || !result) continue;
 
