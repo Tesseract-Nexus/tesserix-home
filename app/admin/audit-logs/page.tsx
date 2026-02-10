@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ScrollText,
   ShieldAlert,
@@ -204,6 +204,7 @@ export default function AuditLogsPage() {
       <AdminHeader
         title="Audit Logs"
         description="Monitor and review all system activity"
+        icon={<ScrollText className="h-6 w-6 text-muted-foreground" />}
       />
 
       <main className="p-6 space-y-6">
@@ -480,12 +481,12 @@ function RetentionCard({
   const [saving, setSaving] = useState(false);
 
   // Sync state when data loads
-  useState(() => {
+  useEffect(() => {
     if (retention) {
       setDays(retention.retention_days);
       setAutoCleanup(retention.auto_cleanup_enabled);
     }
-  });
+  }, [retention]);
 
   async function handleSave() {
     setSaving(true);
