@@ -137,12 +137,12 @@ function KpiCards({ stats }: { stats: EnhancedStats | null }) {
   const kpis = [
     {
       title: "Active",
-      value: stats.active_subscriptions,
+      value: stats.activeCount,
       icon: <Users className="h-4 w-4 text-muted-foreground" />,
     },
     {
       title: "Trialing",
-      value: stats.trialing_subscriptions,
+      value: stats.trialingCount,
       icon: <Clock className="h-4 w-4 text-muted-foreground" />,
     },
     {
@@ -163,7 +163,7 @@ function KpiCards({ stats }: { stats: EnhancedStats | null }) {
     },
     {
       title: "Conversion Rate",
-      value: `${stats.trialConversionRate.toFixed(1)}%`,
+      value: `${(stats.trialConversionRate ?? 0).toFixed(1)}%`,
       icon: <TrendingUp className="h-4 w-4 text-muted-foreground" />,
       isFormatted: true,
     },
@@ -220,7 +220,7 @@ function ExtendTrialDialog({
     setSubmitting(true);
     setError(null);
 
-    const result = await extendTrial(trial.tenant_id, days, reason.trim());
+    const result = await extendTrial(trial.tenantId, days, reason.trim());
 
     setSubmitting(false);
 
@@ -240,7 +240,7 @@ function ExtendTrialDialog({
         <DialogHeader>
           <DialogTitle>Extend Trial</DialogTitle>
           <DialogDescription>
-            Extend the trial period for tenant {trial?.tenant_id?.slice(0, 8)}...
+            Extend the trial period for tenant {trial?.tenantId?.slice(0, 8)}...
           </DialogDescription>
         </DialogHeader>
 
@@ -395,11 +395,11 @@ function RecentPaymentsSection() {
               <TableBody>
                 {invoices.map((inv: SubscriptionInvoice) => (
                   <TableRow key={inv.id}>
-                    <TableCell>{formatDate(inv.created_at)}</TableCell>
+                    <TableCell>{formatDate(inv.createdAt)}</TableCell>
                     <TableCell className="font-mono text-sm">
-                      {inv.tenant_id.slice(0, 8)}...
+                      {inv.tenantId.slice(0, 8)}...
                     </TableCell>
-                    <TableCell>{formatAmountCents(inv.amount_due_cents)}</TableCell>
+                    <TableCell>{formatAmountCents(inv.amountDueCents)}</TableCell>
                     <TableCell>
                       <Badge variant={invoiceStatusVariant(inv.status)}>
                         {inv.status}
@@ -407,10 +407,10 @@ function RecentPaymentsSection() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {inv.stripe_hosted_url && (
+                        {inv.stripeHostedUrl && (
                           <Button variant="ghost" size="sm" asChild>
                             <a
-                              href={inv.stripe_hosted_url}
+                              href={inv.stripeHostedUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                             >
@@ -419,10 +419,10 @@ function RecentPaymentsSection() {
                             </a>
                           </Button>
                         )}
-                        {inv.stripe_invoice_pdf && (
+                        {inv.stripeInvoicePdf && (
                           <Button variant="ghost" size="sm" asChild>
                             <a
-                              href={inv.stripe_invoice_pdf}
+                              href={inv.stripeInvoicePdf}
                               target="_blank"
                               rel="noopener noreferrer"
                             >
@@ -509,8 +509,8 @@ function ExpiringTrialsSection() {
 
   const sorted = trials
     ? [...trials].sort((a, b) => {
-        const aEnd = a.trial_end ? new Date(a.trial_end).getTime() : Infinity;
-        const bEnd = b.trial_end ? new Date(b.trial_end).getTime() : Infinity;
+        const aEnd = a.trialEnd ? new Date(a.trialEnd).getTime() : Infinity;
+        const bEnd = b.trialEnd ? new Date(b.trialEnd).getTime() : Infinity;
         return aEnd - bEnd;
       })
     : [];
@@ -547,16 +547,16 @@ function ExpiringTrialsSection() {
               </TableHeader>
               <TableBody>
                 {sorted.map((trial) => {
-                  const daysLeft = getDaysLeft(trial.trial_end);
+                  const daysLeft = getDaysLeft(trial.trialEnd);
                   return (
                     <TableRow key={trial.id}>
                       <TableCell className="font-mono text-sm">
-                        {trial.tenant_id.slice(0, 8)}...
+                        {trial.tenantId.slice(0, 8)}...
                       </TableCell>
                       <TableCell>
-                        {trial.plan?.display_name || trial.plan_id.slice(0, 8)}
+                        {trial.plan?.displayName || trial.planId.slice(0, 8)}
                       </TableCell>
-                      <TableCell>{formatDate(trial.trial_end)}</TableCell>
+                      <TableCell>{formatDate(trial.trialEnd)}</TableCell>
                       <TableCell>
                         <Badge
                           variant={daysLeft <= 3 ? "destructive" : daysLeft <= 7 ? "warning" : "secondary"}
@@ -616,10 +616,10 @@ function PlanCardSkeleton() {
 function PlanCard({ plan }: { plan: SubscriptionPlan }) {
   const features = plan.features || {};
   const featureList = Object.entries(features).filter(([, v]) => v);
-  const isStripeSynced = !!plan.stripe_product_id;
+  const isStripeSynced = !!plan.stripeProductId;
 
   return (
-    <Card className={!plan.is_active ? "opacity-60" : ""}>
+    <Card className={!plan.isActive ? "opacity-60" : ""}>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -627,13 +627,13 @@ function PlanCard({ plan }: { plan: SubscriptionPlan }) {
               {getPlanIcon(plan.name)}
             </div>
             <div>
-              <CardTitle className="text-lg">{plan.display_name}</CardTitle>
+              <CardTitle className="text-lg">{plan.displayName}</CardTitle>
               <CardDescription>{plan.description}</CardDescription>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {plan.is_free && <Badge variant="secondary">Free</Badge>}
-            {plan.is_active ? (
+            {plan.isFree && <Badge variant="secondary">Free</Badge>}
+            {plan.isActive ? (
               <Badge variant="success">Active</Badge>
             ) : (
               <Badge variant="destructive">Inactive</Badge>
@@ -644,12 +644,12 @@ function PlanCard({ plan }: { plan: SubscriptionPlan }) {
       <CardContent className="space-y-4">
         <div>
           <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold">{formatCents(plan.monthly_price_cents)}</span>
-            {!plan.is_free && <span className="text-muted-foreground">/mo</span>}
+            <span className="text-3xl font-bold">{formatCents(plan.monthlyPriceCents)}</span>
+            {!plan.isFree && <span className="text-muted-foreground">/mo</span>}
           </div>
-          {!plan.is_free && (
+          {!plan.isFree && (
             <p className="text-sm text-muted-foreground">
-              {formatCents(plan.yearly_price_cents)}/yr (save {Math.round((1 - plan.yearly_price_cents / (plan.monthly_price_cents * 12)) * 100)}%)
+              {formatCents(plan.yearlyPriceCents)}/yr (save {Math.round((1 - plan.yearlyPriceCents / (plan.monthlyPriceCents * 12)) * 100)}%)
             </p>
           )}
         </div>
@@ -657,20 +657,20 @@ function PlanCard({ plan }: { plan: SubscriptionPlan }) {
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Products</span>
-            <span className="font-medium">{formatLimit(plan.max_products)}</span>
+            <span className="font-medium">{formatLimit(plan.maxProducts)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Users</span>
-            <span className="font-medium">{formatLimit(plan.max_users)}</span>
+            <span className="font-medium">{formatLimit(plan.maxUsers)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Storage</span>
-            <span className="font-medium">{formatStorage(plan.max_storage_mb)}</span>
+            <span className="font-medium">{formatStorage(plan.maxStorageMb)}</span>
           </div>
-          {plan.trial_days > 0 && (
+          {plan.trialDays > 0 && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Trial</span>
-              <span className="font-medium">{plan.trial_days} days</span>
+              <span className="font-medium">{plan.trialDays} days</span>
             </div>
           )}
         </div>
@@ -793,7 +793,7 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {plans
-              .sort((a, b) => a.sort_order - b.sort_order)
+              .sort((a, b) => a.sortOrder - b.sortOrder)
               .map((plan) => (
                 <PlanCard key={plan.id} plan={plan} />
               ))}

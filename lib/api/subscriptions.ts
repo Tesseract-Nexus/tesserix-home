@@ -5,71 +5,71 @@ import { useApi, apiFetch } from './use-api';
 export interface SubscriptionPlan {
   id: string;
   name: string;
-  display_name: string;
+  displayName: string;
   description?: string;
-  monthly_price_cents: number;
-  yearly_price_cents: number;
+  monthlyPriceCents: number;
+  yearlyPriceCents: number;
   currency: string;
-  stripe_product_id?: string;
-  stripe_monthly_price_id?: string;
-  stripe_yearly_price_id?: string;
-  max_products: number;
-  max_users: number;
-  max_storage_mb: number;
+  stripeProductId?: string;
+  stripeMonthlyPriceId?: string;
+  stripeYearlyPriceId?: string;
+  maxProducts: number;
+  maxUsers: number;
+  maxStorageMb: number;
   features?: Record<string, boolean>;
-  sort_order: number;
-  is_active: boolean;
-  is_free: boolean;
-  trial_days: number;
-  created_at?: string;
-  updated_at?: string;
+  sortOrder: number;
+  isActive: boolean;
+  isFree: boolean;
+  trialDays: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface TenantSubscription {
   id: string;
-  tenant_id: string;
-  plan_id: string;
+  tenantId: string;
+  planId: string;
   plan?: SubscriptionPlan;
-  stripe_customer_id?: string;
-  stripe_subscription_id?: string;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'expired' | 'suspended';
-  billing_interval: 'monthly' | 'yearly';
-  current_period_start?: string;
-  current_period_end?: string;
-  trial_start?: string;
-  trial_end?: string;
-  cancel_at_period_end: boolean;
-  canceled_at?: string;
-  billing_email?: string;
-  created_at?: string;
-  updated_at?: string;
+  billingInterval: 'monthly' | 'yearly';
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+  trialStart?: string;
+  trialEnd?: string;
+  cancelAtPeriodEnd: boolean;
+  canceledAt?: string;
+  billingEmail?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SubscriptionInvoice {
   id: string;
-  tenant_id: string;
-  subscription_id?: string;
-  stripe_invoice_id?: string;
-  stripe_hosted_url?: string;
-  stripe_invoice_pdf?: string;
+  tenantId: string;
+  subscriptionId?: string;
+  stripeInvoiceId?: string;
+  stripeHostedUrl?: string;
+  stripeInvoicePdf?: string;
   status: 'draft' | 'open' | 'paid' | 'void';
-  amount_due_cents: number;
-  amount_paid_cents: number;
+  amountDueCents: number;
+  amountPaidCents: number;
   currency: string;
-  period_start?: string;
-  period_end?: string;
-  paid_at?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  paidAt?: string;
   description?: string;
-  created_at?: string;
+  createdAt?: string;
 }
 
 export interface SubscriptionStats {
   mrr: number;
-  active_subscriptions: number;
-  trialing_subscriptions: number;
-  past_due_subscriptions: number;
-  canceled_subscriptions: number;
-  total_revenue_cents: number;
+  activeCount: number;
+  trialingCount: number;
+  pastDueCount: number;
+  canceledCount: number;
+  totalRevenue: number;
 }
 
 export interface EnhancedStats extends SubscriptionStats {
@@ -82,14 +82,14 @@ export interface EnhancedStats extends SubscriptionStats {
 
 export interface ExpiringTrial {
   id: string;
-  tenant_id: string;
-  plan_id: string;
+  tenantId: string;
+  planId: string;
   plan?: SubscriptionPlan;
   status: string;
-  trial_start?: string;
-  trial_end?: string;
-  billing_email?: string;
-  created_at?: string;
+  trialStart?: string;
+  trialEnd?: string;
+  billingEmail?: string;
+  createdAt?: string;
 }
 
 export interface ExtendTrialRequest {

@@ -179,37 +179,37 @@ function TenantBillingTab({ tenantId }: { tenantId: string }) {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Plan</p>
-              <p className="text-lg font-semibold">{subscription.plan?.display_name || "Unknown"}</p>
+              <p className="text-lg font-semibold">{subscription.plan?.displayName || "Unknown"}</p>
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Billing</p>
-              <p className="text-lg font-semibold capitalize">{subscription.billing_interval}</p>
+              <p className="text-lg font-semibold capitalize">{subscription.billingInterval}</p>
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Current Period</p>
               <p className="text-sm">
-                {subscription.current_period_start
-                  ? new Date(subscription.current_period_start).toLocaleDateString()
+                {subscription.currentPeriodStart
+                  ? new Date(subscription.currentPeriodStart).toLocaleDateString()
                   : "-"}{" "}
                 &mdash;{" "}
-                {subscription.current_period_end
-                  ? new Date(subscription.current_period_end).toLocaleDateString()
+                {subscription.currentPeriodEnd
+                  ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
                   : "-"}
               </p>
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">Next Billing</p>
               <p className="text-sm">
-                {subscription.cancel_at_period_end
+                {subscription.cancelAtPeriodEnd
                   ? "Cancels at period end"
-                  : subscription.current_period_end
-                    ? new Date(subscription.current_period_end).toLocaleDateString()
+                  : subscription.currentPeriodEnd
+                    ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
                     : "-"}
               </p>
             </div>
           </div>
 
-          {subscription.cancel_at_period_end && (
+          {subscription.cancelAtPeriodEnd && (
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-200">
               This subscription is set to cancel at the end of the current billing period.
             </div>
@@ -226,7 +226,7 @@ function TenantBillingTab({ tenantId }: { tenantId: string }) {
               <ExternalLink className="mr-2 h-4 w-4" />
               Manage in Stripe
             </Button>
-            {subscription.cancel_at_period_end ? (
+            {subscription.cancelAtPeriodEnd ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -284,12 +284,12 @@ function TenantBillingTab({ tenantId }: { tenantId: string }) {
                   {invoices.map((invoice: SubscriptionInvoice) => (
                     <tr key={invoice.id} className="border-b last:border-0">
                       <td className="px-4 py-2">
-                        {invoice.created_at
-                          ? new Date(invoice.created_at).toLocaleDateString()
+                        {invoice.createdAt
+                          ? new Date(invoice.createdAt).toLocaleDateString()
                           : "-"}
                       </td>
                       <td className="px-4 py-2 font-medium">
-                        {formatCents(invoice.amount_due_cents)}
+                        {formatCents(invoice.amountDueCents)}
                       </td>
                       <td className="px-4 py-2">
                         <Badge variant={getInvoiceStatusColor(invoice.status)}>
@@ -298,9 +298,9 @@ function TenantBillingTab({ tenantId }: { tenantId: string }) {
                       </td>
                       <td className="px-4 py-2 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {invoice.stripe_hosted_url && (
+                          {invoice.stripeHostedUrl && (
                             <a
-                              href={invoice.stripe_hosted_url}
+                              href={invoice.stripeHostedUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary hover:underline text-xs"
@@ -308,9 +308,9 @@ function TenantBillingTab({ tenantId }: { tenantId: string }) {
                               View
                             </a>
                           )}
-                          {invoice.stripe_invoice_pdf && (
+                          {invoice.stripeInvoicePdf && (
                             <a
-                              href={invoice.stripe_invoice_pdf}
+                              href={invoice.stripeInvoicePdf}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary hover:underline text-xs"
