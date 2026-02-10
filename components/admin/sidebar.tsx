@@ -72,8 +72,8 @@ export function AdminSidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-active-text"
-                    : "text-sidebar-text hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    ? "bg-sidebar-accent text-sidebar-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                 )}
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -85,7 +85,7 @@ export function AdminSidebar() {
         </nav>
 
         <div className="mt-8">
-          <p className="px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-text-muted">
+          <p className="px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
             Settings
           </p>
           <nav className="mt-2 space-y-1">
@@ -98,8 +98,8 @@ export function AdminSidebar() {
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-sidebar-accent text-sidebar-active-text"
-                      : "text-sidebar-text hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      ? "bg-sidebar-accent text-sidebar-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   )}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -122,14 +122,14 @@ export function AdminSidebar() {
             <p className="truncate text-sm font-medium text-sidebar-foreground">
               {user?.displayName || user?.email || "Admin"}
             </p>
-            <p className="truncate text-xs text-sidebar-text-muted">
+            <p className="truncate text-xs text-sidebar-foreground/50">
               {user?.email}
             </p>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="text-sidebar-text hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={() => logout()}
           >
             <LogOut className="h-4 w-4" />
