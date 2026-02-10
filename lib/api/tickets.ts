@@ -2,6 +2,18 @@
 
 import { useApi, apiFetch } from './use-api';
 
+/**
+ * Go backend may return object-with-numeric-keys instead of array
+ * (e.g. { "0": {...}, "1": {...} }). Normalize to array.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toArray<T>(val: T[] | Record<string, T> | null | undefined): T[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'object') return Object.values(val);
+  return [];
+}
+
 export interface TicketComment {
   id: string;
   content: string;
@@ -11,6 +23,11 @@ export interface TicketComment {
     email: string;
     role: string;
   };
+  // Go backend field names
+  userId?: string;
+  userName?: string;
+  createdAt?: string;
+  // Alternative field names
   created_by?: string;
   created_by_name?: string;
   created_by_email?: string;
@@ -85,7 +102,15 @@ export function useTickets(filters: TicketFilters = {}) {
  */
 export function useTicket(id: string | null, tenantId?: string | null) {
   const params = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
-  return useApi<Ticket>(id ? `/api/tickets/${id}${params}` : null);
+  const result = useApi<Ticket>(id ? `/api/tickets/${id}${params}` : null);
+
+  // Normalize object-with-numeric-keys from Go backend to arrays
+  if (result.data) {
+    result.data.comments = toArray(result.data.comments);
+    result.data.tags = toArray(result.data.tags);
+  }
+
+  return result;
 }
 
 /**

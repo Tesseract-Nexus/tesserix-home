@@ -300,11 +300,12 @@ export default function AppTicketDetailPage({
                 <CardContent className="space-y-4">
                   {ticket.comments && ticket.comments.length > 0 ? (
                     <div className="space-y-4">
-                      {ticket.comments.map((comment: TicketComment) => {
-                        const authorName = comment.author?.name || comment.created_by_name || "Unknown";
+                      {ticket.comments.map((comment: TicketComment, idx: number) => {
+                        const authorName = comment.author?.name || comment.userName || comment.created_by_name || "Unknown";
                         const authorRole = comment.author?.role || "user";
+                        const commentTime = comment.created_at || comment.createdAt;
                         return (
-                          <div key={comment.id} className="flex gap-3 p-3 rounded-lg bg-muted/40">
+                          <div key={comment.id || idx} className="flex gap-3 p-3 rounded-lg bg-muted/40">
                             <Avatar className="h-8 w-8">
                               <AvatarFallback className="text-xs">
                                 {getInitials(authorName)}
@@ -319,9 +320,11 @@ export default function AppTicketDetailPage({
                                 >
                                   {authorRole}
                                 </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {timeAgo(comment.created_at)}
-                                </span>
+                                {commentTime && commentTime !== "0001-01-01T00:00:00Z" && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {timeAgo(commentTime)}
+                                  </span>
+                                )}
                               </div>
                               <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">
                                 {comment.content}
