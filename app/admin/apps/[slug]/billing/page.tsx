@@ -22,6 +22,7 @@ import {
   ExternalLink,
   Plus,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ import {
   usePlans,
   createPlan,
   updatePlan,
+  deletePlan,
   syncPlansToStripe,
   useEnhancedStats,
   useExpiringTrials,
@@ -644,6 +646,78 @@ function ExtendTrialDialog({
   );
 }
 
+// ---------- Delete Plan Dialog ----------
+
+function DeletePlanDialog({
+  plan,
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  plan: SubscriptionPlan | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleDelete() {
+    if (!plan) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    const result = await deletePlan(plan.id);
+
+    setSubmitting(false);
+
+    if (result.error) {
+      setError(result.error);
+    } else {
+      onOpenChange(false);
+      onSuccess();
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Plan</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete <strong>{plan?.displayName}</strong>? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-2">
+          {plan?.stripeProductId && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <p>
+                  This plan has a linked Stripe product. Deleting the plan will not remove the Stripe product — it will become orphaned.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={submitting}>
+            {submitting ? "Deleting..." : "Delete Plan"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ---------- Plan Card ----------
 
 function PlanCardSkeleton() {
@@ -665,9 +739,11 @@ function PlanCardSkeleton() {
 function PlanCard({
   plan,
   onEdit,
+  onDelete,
 }: {
   plan: SubscriptionPlan;
   onEdit: (plan: SubscriptionPlan) => void;
+  onDelete: (plan: SubscriptionPlan) => void;
 }) {
   const features = plan.features || {};
   const featureList = Object.entries(features).filter(([, v]) => v);
@@ -675,15 +751,25 @@ function PlanCard({
 
   return (
     <Card className={`relative group ${!plan.isActive ? "opacity-60" : ""}`}>
-      {/* Edit button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="absolute top-3 right-3 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-        onClick={() => onEdit(plan)}
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </Button>
+      {/* Edit + Delete buttons */}
+      <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => onEdit(plan)}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-destructive"
+          onClick={() => onDelete(plan)}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
 
       <CardContent className="p-5 space-y-4">
         {/* Header */}
@@ -1063,6 +1149,8 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
   const [syncing, setSyncing] = useState(false);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingPlan, setDeletingPlan] = useState<SubscriptionPlan | null>(null);
 
   async function handleSyncToStripe() {
     setSyncing(true);
@@ -1081,6 +1169,11 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
   function handleEditPlan(plan: SubscriptionPlan) {
     setEditingPlan(plan);
     setPlanDialogOpen(true);
+  }
+
+  function handleDeletePlan(plan: SubscriptionPlan) {
+    setDeletingPlan(plan);
+    setDeleteDialogOpen(true);
   }
 
   function handlePlanSuccess() {
@@ -1164,7 +1257,7 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {sortedPlans.map((plan) => (
-                <PlanCard key={plan.id} plan={plan} onEdit={handleEditPlan} />
+                <PlanCard key={plan.id} plan={plan} onEdit={handleEditPlan} onDelete={handleDeletePlan} />
               ))}
             </div>
           )}
@@ -1185,6 +1278,14 @@ export default function AppBillingPage({ params }: { params: Promise<{ slug: str
         plan={editingPlan}
         open={planDialogOpen}
         onOpenChange={setPlanDialogOpen}
+        onSuccess={handlePlanSuccess}
+      />
+
+      {/* Delete Plan Dialog */}
+      <DeletePlanDialog
+        plan={deletingPlan}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
         onSuccess={handlePlanSuccess}
       />
     </>

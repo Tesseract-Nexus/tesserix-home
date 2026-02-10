@@ -265,6 +265,50 @@ export async function deleteOnboardingItem(type: ContentType, id: string) {
   });
 }
 
+// ─── Regional pricing ───────────────────────────────────────────────────────
+
+export interface RegionalPricing {
+  id: string;
+  planId: string;
+  countryCode: string;
+  price: string;
+  currency: string;
+}
+
+export function useRegionalPricing(planId: string | null) {
+  return useApi<{ data: RegionalPricing[] }>(
+    planId ? `${BASE_PATH}/payment-plans/${planId}/regional-pricing` : null
+  );
+}
+
+export async function createRegionalPricing(
+  planId: string,
+  data: { countryCode: string; price: string; currency: string }
+) {
+  return apiFetch<{ data: RegionalPricing }>(
+    `${BASE_PATH}/payment-plans/${planId}/regional-pricing`,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
+}
+
+export async function updateRegionalPricing(
+  planId: string,
+  pricingId: string,
+  data: Partial<{ countryCode: string; price: string; currency: string }>
+) {
+  return apiFetch<{ data: RegionalPricing }>(
+    `${BASE_PATH}/payment-plans/${planId}/regional-pricing/${pricingId}`,
+    { method: 'PUT', body: JSON.stringify(data) }
+  );
+}
+
+export async function deleteRegionalPricing(planId: string, pricingId: string) {
+  return apiFetch(
+    `${BASE_PATH}/payment-plans/${planId}/regional-pricing/${pricingId}`,
+    { method: 'DELETE' }
+  );
+}
+
 // ─── Nested resource helpers (guide steps, plan features, integration features) ──
 
 export async function createGuideStep(guideId: string, data: Partial<GuideStep>) {

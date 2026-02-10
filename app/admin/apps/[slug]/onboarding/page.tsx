@@ -12,6 +12,9 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
+  ArrowRight,
+  Loader2,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -48,6 +51,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TableSkeleton } from "@/components/admin/table-skeleton";
 import { ErrorState } from "@/components/admin/error-state";
 import { EmptyState } from "@/components/admin/empty-state";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   useOnboardingContent,
   createOnboardingItem,
@@ -66,6 +70,18 @@ import {
   type Guide,
   type PresentationSlide,
 } from "@/lib/api/onboarding-content";
+import {
+  usePlans,
+  type SubscriptionPlan,
+} from "@/lib/api/subscriptions";
+import { apiFetch } from "@/lib/api/use-api";
+import {
+  subscriptionToPaymentPlan,
+  subscriptionFeatureTexts,
+  calculateRegionalPrice,
+  SUPPORTED_COUNTRIES,
+  EXCHANGE_RATES,
+} from "@/lib/utils/plan-mapping";
 
 const APP_NAMES: Record<string, string> = {
   mark8ly: "Mark8ly",
@@ -777,6 +793,154 @@ const SIMPLE_TYPES: ContentType[] = ["faqs", "features", "testimonials", "trust-
 // Complex types that link to detail pages
 const COMPLEX_TYPES: ContentType[] = ["payment-plans", "integrations", "guides", "presentation-slides"];
 
+// ─── Import from Billing Section ─────────────────────────────────────────────
+
+function ImportFromBillingSection({
+  paymentPlans,
+  onImported,
+  slug,
+}: {
+  paymentPlans: PaymentPlan[];
+  onImported: () => void;
+  slug: string;
+}) {
+  const { data: subPlans, isLoading } = usePlans();
+  const [importingId, setImportingId] = useState<string | null>(null);
+
+  const sortedPlans = subPlans
+    ? [...subPlans].sort((a, b) => a.sortOrder - b.sortOrder)
+    : [];
+
+  function isImported(sub: SubscriptionPlan): boolean {
+    return paymentPlans.some((pp) => pp.slug === sub.name);
+  }
+
+  async function handleImport(sub: SubscriptionPlan) {
+    setImportingId(sub.id);
+    try {
+      // 1. Create payment plan
+      const mapped = subscriptionToPaymentPlan(sub);
+      const { data: result, error: createErr } = await createOnboardingItem("payment-plans", mapped);
+      if (createErr || !result) {
+        toast.error(createErr || "Failed to create payment plan");
+        return;
+      }
+
+      const newPlanId = (result as { data: PaymentPlan }).data?.id;
+      if (!newPlanId) {
+        toast.error("Failed to get new plan ID");
+        return;
+      }
+
+      // 2. Create features
+      const featureTexts = subscriptionFeatureTexts(sub);
+      for (let i = 0; i < featureTexts.length; i++) {
+        await apiFetch(`/api/onboarding-content/payment-plans/${newPlanId}/features`, {
+          method: "POST",
+          body: JSON.stringify({ feature: featureTexts[i], sortOrder: i }),
+        });
+      }
+
+      // 3. Create regional pricing for non-AUD countries
+      for (const country of SUPPORTED_COUNTRIES) {
+        if (country.currency === "AUD") continue;
+        const baseAud = sub.monthlyPriceCents / 100;
+        const regionalPrice = calculateRegionalPrice(baseAud, country.currency);
+        if (regionalPrice > 0) {
+          await apiFetch(`/api/onboarding-content/payment-plans/${newPlanId}/regional-pricing`, {
+            method: "POST",
+            body: JSON.stringify({
+              countryCode: country.code,
+              price: regionalPrice.toFixed(2),
+              currency: country.currency,
+            }),
+          });
+        }
+      }
+
+      toast.success(`Imported "${sub.displayName}" with features and regional pricing`);
+      onImported();
+    } catch {
+      toast.error("Failed to import plan");
+    } finally {
+      setImportingId(null);
+    }
+  }
+
+  if (isLoading || sortedPlans.length === 0) return null;
+
+  return (
+    <Card className="mb-4">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-semibold">Import from Billing Plans</h3>
+            <p className="text-xs text-muted-foreground">
+              Import subscription plans as marketing content for the pricing page.
+            </p>
+          </div>
+          <Link
+            href={`/admin/apps/${slug}/billing`}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            Manage Billing Plans
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+          {sortedPlans.map((sub) => {
+            const imported = isImported(sub);
+            const importing = importingId === sub.id;
+            const featureCount = Object.values(sub.features || {}).filter(Boolean).length;
+            const price = sub.monthlyPriceCents === 0
+              ? "Free"
+              : `${EXCHANGE_RATES.AUD.symbol}${(sub.monthlyPriceCents / 100).toFixed(0)}/mo`;
+
+            return (
+              <div
+                key={sub.id}
+                className="rounded-lg border p-3 space-y-2"
+              >
+                <div>
+                  <p className="text-sm font-medium">{sub.displayName}</p>
+                  <p className="text-xs text-muted-foreground">{price}</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {featureCount + (sub.maxProducts !== 0 ? 1 : 0) + (sub.maxUsers !== 0 ? 1 : 0) + (sub.maxStorageMb !== 0 ? 1 : 0)} features
+                </p>
+                {imported ? (
+                  <Badge variant="secondary" className="text-xs w-full justify-center">
+                    <Check className="mr-1 h-3 w-3" />
+                    Imported
+                  </Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs h-7"
+                    onClick={() => handleImport(sub)}
+                    disabled={importing || importingId !== null}
+                  >
+                    {importing ? (
+                      <>
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      "Import"
+                    )}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function OnboardingPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -992,6 +1156,14 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
           {/* Tab content — all share the same loading/error/table pattern */}
           {CONTENT_TYPES.map((ct) => (
             <TabsContent key={ct.key} value={ct.key}>
+              {ct.key === "payment-plans" && !isLoading && !error && (
+                <ImportFromBillingSection
+                  paymentPlans={filteredItems as PaymentPlan[]}
+                  onImported={() => mutate()}
+                  slug={slug}
+                />
+              )}
+
               {isLoading ? (
                 <TableSkeleton columns={5} rows={5} />
               ) : error ? (
