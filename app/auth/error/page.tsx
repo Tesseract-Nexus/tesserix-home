@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { AlertTriangle, ArrowLeft, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, RefreshCw, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -37,6 +37,7 @@ export default function AuthErrorPage() {
   const errorDescription = searchParams.get("error_description") || "";
 
   const errorInfo = ERROR_MESSAGES[errorCode] || DEFAULT_ERROR;
+  const isAccessDenied = errorCode === "access_denied";
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -65,12 +66,21 @@ export default function AuthErrorPage() {
             </p>
 
             <div className="flex flex-col gap-2">
-              <Button asChild className="w-full">
-                <Link href="/login">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Try Again
-                </Link>
-              </Button>
+              {isAccessDenied ? (
+                <Button asChild className="w-full">
+                  <Link href="/login?prompt=select_account">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Sign in with a different account
+                  </Link>
+                </Button>
+              ) : (
+                <Button asChild className="w-full">
+                  <Link href="/login">
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Try Again
+                  </Link>
+                </Button>
+              )}
               <Button variant="outline" asChild className="w-full">
                 <Link href="/contact">Contact Support</Link>
               </Button>

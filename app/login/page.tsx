@@ -63,7 +63,10 @@ export default function LoginPage() {
   function handleGoogleLogin() {
     setIsGoogleLoading(true);
     setLoginError(null);
-    const loginUrl = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}&kc_idp_hint=google`;
+    // Pass prompt param if present (e.g., select_account from error page to force account picker)
+    const prompt = searchParams.get("prompt");
+    const promptParam = prompt ? `&prompt=${encodeURIComponent(prompt)}` : "";
+    const loginUrl = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}&kc_idp_hint=google${promptParam}`;
     window.location.href = loginUrl;
   }
 
