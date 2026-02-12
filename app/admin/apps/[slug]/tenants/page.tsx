@@ -165,15 +165,18 @@ export default function AppTenantsPage({ params }: { params: Promise<{ slug: str
                       </TableCell>
                       <TableCell>
                         {tenant.custom_domain && tenant.use_custom_domain ? (
-                          <a
-                            href={`https://${tenant.custom_domain}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-primary hover:underline text-sm"
-                          >
-                            <Globe className="h-3 w-3" />
-                            {tenant.custom_domain}
-                          </a>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`https://${tenant.custom_domain}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-primary hover:underline text-sm"
+                            >
+                              <Globe className="h-3 w-3" />
+                              {tenant.custom_domain}
+                            </a>
+                            <Badge variant="outline" className="text-xs px-1.5 py-0">Custom</Badge>
+                          </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">
                             {tenant.slug}.{BASE_DOMAIN}
