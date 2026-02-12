@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Search, Filter, MoreHorizontal, ExternalLink, ChevronRight, Globe, Trash2 } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Button } from "@/components/ui/button";
@@ -163,28 +164,31 @@ export default function AppTenantsPage({ params }: { params: Promise<{ slug: str
       if (deleteMode === "single" && deleteSingleTenant) {
         const res = await deleteTenant(deleteSingleTenant.id, deleteReason);
         if (res.error) {
-          alert(`Failed to delete tenant: ${res.error}`);
+          toast.error("Failed to delete tenant", { description: res.error });
           return;
         }
+        toast.success(`Tenant "${deleteSingleTenant.name}" deleted`);
       } else if (deleteMode === "batch") {
         const ids = Array.from(selectedIds);
         const res = await batchDeleteTenants(ids, deleteReason);
         if (res.error) {
-          alert(`Batch delete failed: ${res.error}`);
+          toast.error("Batch delete failed", { description: res.error });
           return;
         }
+        toast.success(`${ids.length} tenant${ids.length === 1 ? "" : "s"} deleted`);
         setSelectedIds(new Set());
       } else if (deleteMode === "all") {
         const res = await deleteAllTenants(deleteAllConfirmation, deleteReason);
         if (res.error) {
-          alert(`Delete all failed: ${res.error}`);
+          toast.error("Delete all failed", { description: res.error });
           return;
         }
+        toast.success("All tenants deleted");
       }
       closeDeleteDialog();
       mutate();
     } catch (err) {
-      alert(`Delete operation failed: ${err}`);
+      toast.error("Delete operation failed", { description: String(err) });
     } finally {
       setDeleteLoading(false);
     }
@@ -405,15 +409,6 @@ export default function AppTenantsPage({ params }: { params: Promise<{ slug: str
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
-                            {tenant.status === "active" ? (
-                              <DropdownMenuItem className="text-destructive">
-                                Suspend Tenant
-                              </DropdownMenuItem>
-                            ) : tenant.status === "suspended" ? (
-                              <DropdownMenuItem>
-                                Activate Tenant
-                              </DropdownMenuItem>
-                            ) : null}
                             <DropdownMenuItem
                               className="text-destructive"
                               onClick={() => openSingleDelete(tenant)}
