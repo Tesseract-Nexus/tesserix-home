@@ -66,11 +66,48 @@ export function useTenant(id: string | null) {
 }
 
 /**
- * Delete a tenant.
+ * Delete a single tenant (platform admin).
  */
-export async function deleteTenant(id: string, reason: string, confirmationText: string) {
+export async function deleteTenant(id: string, reason: string) {
   return apiFetch(`/api/tenants/${id}`, {
     method: 'DELETE',
-    body: JSON.stringify({ reason, confirmation_text: confirmationText }),
+    body: JSON.stringify({ reason }),
+  });
+}
+
+/**
+ * Batch delete multiple tenants.
+ */
+export async function batchDeleteTenants(tenantIds: string[], reason: string) {
+  return apiFetch('/api/tenants/batch-delete', {
+    method: 'POST',
+    body: JSON.stringify({ tenant_ids: tenantIds, reason }),
+  });
+}
+
+/**
+ * Delete all tenants (requires confirmation text).
+ */
+export async function deleteAllTenants(confirmationText: string, reason: string) {
+  return apiFetch('/api/tenants/delete-all', {
+    method: 'POST',
+    body: JSON.stringify({ confirmation_text: confirmationText, reason }),
+  });
+}
+
+export interface DeletionPreview {
+  tenant_id: string;
+  slug: string;
+  name: string;
+  counts: Record<string, Record<string, number>>;
+}
+
+/**
+ * Get a preview of what would be deleted (dry run).
+ */
+export async function getDeletionPreview(tenantIds?: string[]) {
+  return apiFetch('/api/tenants/deletion-preview', {
+    method: 'POST',
+    body: JSON.stringify({ tenant_ids: tenantIds || [] }),
   });
 }

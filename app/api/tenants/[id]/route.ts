@@ -60,7 +60,7 @@ export async function DELETE(
     const { id } = await params;
     const body = await request.json();
 
-    const response = await adminFetch('tenant', `/api/v1/tenants/${id}`, {
+    const response = await adminFetch('tenant', `/api/v1/tenants/${id}/admin-delete`, {
       method: 'DELETE',
       body: JSON.stringify(body),
     });
