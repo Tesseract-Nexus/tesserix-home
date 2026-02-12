@@ -12,6 +12,9 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
+  CheckCircle,
+  XCircle,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -54,6 +57,9 @@ import {
   createOnboardingItem,
   updateOnboardingItem,
   deleteOnboardingItem,
+  approveTestimonial,
+  rejectTestimonial,
+  requestTestimonialRevision,
   CONTENT_TYPES,
   type ContentType,
   type FAQ,
@@ -204,7 +210,28 @@ function FeaturesTable({ items, onEdit, onDelete, onToggleActive }: TableProps<F
   );
 }
 
-function TestimonialsTable({ items, onEdit, onDelete, onToggleActive }: TableProps<Testimonial>) {
+interface TestimonialTableProps extends TableProps<Testimonial> {
+  onApprove: (item: Testimonial) => void;
+  onReject: (item: Testimonial) => void;
+  onRequestRevision: (item: Testimonial) => void;
+}
+
+function TestimonialsTable({ items, onEdit, onDelete, onToggleActive, onApprove, onReject, onRequestRevision }: TestimonialTableProps) {
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="warning">Pending Review</Badge>;
+      case 'approved':
+        return <Badge variant="success">Approved</Badge>;
+      case 'rejected':
+        return <Badge variant="destructive">Rejected</Badge>;
+      case 'revision_needed':
+        return <Badge variant="secondary">Needs Revision</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
   return (
     <Table>
       <TableHeader>
@@ -212,7 +239,8 @@ function TestimonialsTable({ items, onEdit, onDelete, onToggleActive }: TablePro
           <TableHead>Name</TableHead>
           <TableHead>Quote</TableHead>
           <TableHead>Rating</TableHead>
-          <TableHead>Status</TableHead>
+          <TableHead>Approval Status</TableHead>
+          <TableHead>Active</TableHead>
           <TableHead className="w-10"></TableHead>
         </TableRow>
       </TableHeader>
@@ -228,12 +256,45 @@ function TestimonialsTable({ items, onEdit, onDelete, onToggleActive }: TablePro
             </TableCell>
             <TableCell className="text-muted-foreground">{"★".repeat(testimonial.rating)}</TableCell>
             <TableCell>
+              {getStatusBadge(testimonial.status)}
+            </TableCell>
+            <TableCell>
               <Badge variant={testimonial.active ? "success" : "secondary"}>
                 {testimonial.active ? "Active" : "Inactive"}
               </Badge>
             </TableCell>
             <TableCell>
-              <ActionMenu item={testimonial} onEdit={onEdit} onDelete={onDelete} onToggleActive={onToggleActive} />
+              <div className="flex items-center gap-2">
+                {testimonial.status === 'pending' && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onApprove(testimonial)}
+                      title="Approve"
+                    >
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onReject(testimonial)}
+                      title="Reject"
+                    >
+                      <XCircle className="h-4 w-4 text-red-600" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onRequestRevision(testimonial)}
+                      title="Request Revision"
+                    >
+                      <MessageSquare className="h-4 w-4 text-orange-600" />
+                    </Button>
+                  </>
+                )}
+                <ActionMenu item={testimonial} onEdit={onEdit} onDelete={onDelete} onToggleActive={onToggleActive} />
+              </div>
             </TableCell>
           </TableRow>
         ))}
@@ -826,6 +887,45 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
     mutate();
   }, [activeTab, mutate]);
 
+  // Testimonial approval handlers
+  const handleApprove = useCallback(async (testimonial: Testimonial) => {
+    const { error: err } = await approveTestimonial(testimonial.id, { pageContext: 'home' });
+    if (err) { toast.error(err); return; }
+    toast.success("Testimonial approved successfully");
+    mutate();
+  }, [mutate]);
+
+  const handleReject = useCallback(async (testimonial: Testimonial) => {
+    const { error: err } = await rejectTestimonial(testimonial.id, {});
+    if (err) { toast.error(err); return; }
+    toast.success("Testimonial rejected");
+    mutate();
+  }, [mutate]);
+
+  const [revisionDialogOpen, setRevisionDialogOpen] = useState(false);
+  const [revisionTarget, setRevisionTarget] = useState<Testimonial | null>(null);
+  const [revisionNotes, setRevisionNotes] = useState("");
+
+  const handleRequestRevision = useCallback((testimonial: Testimonial) => {
+    setRevisionTarget(testimonial);
+    setRevisionNotes("");
+    setRevisionDialogOpen(true);
+  }, []);
+
+  const confirmRequestRevision = useCallback(async () => {
+    if (!revisionTarget || !revisionNotes.trim()) {
+      toast.error("Please provide revision notes");
+      return;
+    }
+    const { error: err } = await requestTestimonialRevision(revisionTarget.id, { revisionNotes });
+    if (err) { toast.error(err); return; }
+    toast.success("Revision requested successfully");
+    setRevisionDialogOpen(false);
+    setRevisionTarget(null);
+    setRevisionNotes("");
+    mutate();
+  }, [revisionTarget, revisionNotes, mutate]);
+
   const handleCreateComplex = useCallback(() => {
     // For complex types, we create first then navigate to detail page
     const doCreate = async () => {
@@ -879,7 +979,7 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
     switch (activeTab) {
       case "faqs": return <FAQsTable {...tableProps} />;
       case "features": return <FeaturesTable {...tableProps} />;
-      case "testimonials": return <TestimonialsTable {...tableProps} />;
+      case "testimonials": return <TestimonialsTable {...tableProps} onApprove={handleApprove} onReject={handleReject} onRequestRevision={handleRequestRevision} />;
       case "trust-badges": return <TrustBadgesTable {...tableProps} />;
       case "contacts": return <ContactsTable {...tableProps} />;
       case "country-defaults": return <CountryDefaultsTable {...tableProps} />;
@@ -998,6 +1098,39 @@ export default function OnboardingPage({ params }: { params: Promise<{ slug: str
           onConfirm={confirmDelete}
           loading={deleteLoading}
         />
+
+        {/* Revision Request Dialog */}
+        <Dialog open={revisionDialogOpen} onOpenChange={setRevisionDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request Revision</DialogTitle>
+              <DialogDescription>
+                Provide feedback for the testimonial author to make revisions.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="revision-notes">Revision Notes</Label>
+                <Textarea
+                  id="revision-notes"
+                  value={revisionNotes}
+                  onChange={(e) => setRevisionNotes(e.target.value)}
+                  placeholder="Please explain what needs to be revised..."
+                  rows={4}
+                  className="mt-2"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRevisionDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={confirmRequestRevision}>
+                Send Request
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </>
   );
