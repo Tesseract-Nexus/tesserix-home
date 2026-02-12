@@ -8,7 +8,9 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const response = await adminFetch('tenant', `/internal/tenants/${id}`);
+    const response = await adminFetch('tenant', `/internal/tenants/${id}`, {
+      headers: { 'X-Internal-Service': 'tesserix-home' },
+    });
 
     if (response.status === 401) {
       return apiError('Unauthorized', 401);
