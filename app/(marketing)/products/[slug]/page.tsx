@@ -55,7 +55,6 @@ const products: Record<
       professional: string;
       enterprise: string;
     };
-    github?: string;
     website?: string;
   }
 > = {
@@ -130,7 +129,6 @@ const products: Record<
       "HomeChef is a complete platform that connects talented home cooks with hungry customers in their community. From chef onboarding and menu management to order tracking and delivery coordination, HomeChef provides everything you need to run a successful home food delivery business.",
     icon: ChefHat,
     status: "coming-soon",
-    github: "https://github.com/Tesseract-Nexus/Home-Chef-App",
     features: [
       {
         icon: UserCheck,
@@ -192,7 +190,6 @@ const products: Record<
       "MediCare is a comprehensive hospital management system designed to streamline healthcare operations. From patient registration and electronic health records to appointment scheduling, billing, and inventory management, MediCare digitizes every aspect of hospital administration.",
     icon: Hospital,
     status: "coming-soon",
-    github: "https://github.com/Tesseract-Nexus/hospital-management",
     features: [
       {
         icon: FileText,
@@ -255,7 +252,6 @@ const products: Record<
     icon: Trophy,
     status: "available",
     website: "https://fanzonebattleground.com/",
-    github: "https://github.com/Tesseract-Nexus/FanZone-Battle-Ground",
     features: [
       {
         icon: Zap,
@@ -399,28 +395,16 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
 
             {/* External links */}
-            {(product.website || product.github) && (
+            {product.website && (
               <div className="mt-4 flex items-center justify-center gap-4">
-                {product.website && (
-                  <a
-                    href={product.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Visit {product.website.replace("https://", "")} →
-                  </a>
-                )}
-                {product.github && (
-                  <a
-                    href={product.github}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    View on GitHub →
-                  </a>
-                )}
+                <a
+                  href={product.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Visit {product.website.replace("https://", "").replace(/\/$/, "")} →
+                </a>
               </div>
             )}
           </AnimateOnScroll>
