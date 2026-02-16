@@ -18,6 +18,7 @@ import {
   Users,
   Rocket,
   ClipboardList,
+  Trophy,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -57,10 +58,20 @@ const mark8lyNav: NavItem[] = [
   { name: "Email Templates", href: "/admin/apps/mark8ly/email-templates", icon: Mail },
 ];
 
-type RailContext = "platform" | "mark8ly";
+const fanzoneNav: NavItem[] = [
+  { name: "Overview", href: "/admin/apps/fanzone", icon: LayoutDashboard },
+  { name: "Tenants", href: "/admin/apps/fanzone/tenants", icon: Users },
+  { name: "Tickets", href: "/admin/apps/fanzone/tickets", icon: Ticket },
+  { name: "Billing", href: "/admin/apps/fanzone/billing", icon: CreditCard },
+  { name: "Feature Flags", href: "/admin/apps/fanzone/feature-flags", icon: ToggleLeft },
+  { name: "Email Templates", href: "/admin/apps/fanzone/email-templates", icon: Mail },
+];
+
+type RailContext = "platform" | "mark8ly" | "fanzone";
 
 function getActiveContext(pathname: string): RailContext {
   if (pathname.startsWith("/admin/apps/mark8ly")) return "mark8ly";
+  if (pathname.startsWith("/admin/apps/fanzone")) return "fanzone";
   if (pathname.startsWith("/admin/apps")) return "platform";
   return "platform";
 }
@@ -69,6 +80,8 @@ function getSecondaryNav(context: RailContext): { label: string; items: NavItem[
   switch (context) {
     case "mark8ly":
       return { label: "Mark8ly", items: mark8lyNav };
+    case "fanzone":
+      return { label: "FanZone", items: fanzoneNav };
     case "platform":
     default:
       return { label: "Platform", items: platformNav };
@@ -79,6 +92,9 @@ function isNavItemActive(pathname: string, href: string): boolean {
   // Exact match for overview pages to avoid "/admin/apps/mark8ly" matching "/admin/apps/mark8ly/tenants"
   if (href === "/admin/apps/mark8ly") {
     return pathname === "/admin/apps/mark8ly" || pathname === "/admin/apps/mark8ly/";
+  }
+  if (href === "/admin/apps/fanzone") {
+    return pathname === "/admin/apps/fanzone" || pathname === "/admin/apps/fanzone/";
   }
   return pathname.startsWith(href);
 }
@@ -192,6 +208,13 @@ function LeftRail({
             Mark8ly
           </TooltipContent>
         </Tooltip>
+        <RailIcon
+          icon={Trophy}
+          label="FanZone"
+          isActive={activeContext === "fanzone"}
+          onClick={() => onContextChange("fanzone")}
+          href="/admin/apps/fanzone"
+        />
       </div>
 
       {/* User avatar + Logout at bottom */}
@@ -342,6 +365,19 @@ export function AdminSidebar() {
               >
                 <Link href="/admin/apps/mark8ly" onClick={() => setMobileMenuOpen(false)}>
                   Mark8ly
+                </Link>
+              </button>
+              <button
+                onClick={() => {}}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  activeContext === "fanzone"
+                    ? "bg-sidebar-accent text-sidebar-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+                )}
+              >
+                <Link href="/admin/apps/fanzone" onClick={() => setMobileMenuOpen(false)}>
+                  FanZone
                 </Link>
               </button>
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingBag, Users, ArrowRight } from "lucide-react";
+import { ShoppingBag, Trophy, Users, ArrowRight } from "lucide-react";
 import { AdminHeader } from "@/components/admin/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,13 @@ const APPS = [
     name: "Mark8ly",
     description: "Multi-tenant marketplace platform for e-commerce businesses",
     icon: ShoppingBag,
+    status: "active" as const,
+  },
+  {
+    slug: "fanzone",
+    name: "FanZone",
+    description: "Cricket & sports platform with live scores, predictions, and fan community",
+    icon: Trophy,
     status: "active" as const,
   },
 ];

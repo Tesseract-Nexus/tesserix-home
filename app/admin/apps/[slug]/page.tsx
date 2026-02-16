@@ -25,10 +25,12 @@ import { useTickets, type Ticket as TicketType } from "@/lib/api/tickets";
 
 const APP_NAMES: Record<string, string> = {
   mark8ly: "Mark8ly",
+  fanzone: "FanZone",
 };
 
 const APP_DESCRIPTIONS: Record<string, string> = {
   mark8ly: "Multi-tenant e-commerce marketplace platform",
+  fanzone: "Cricket & sports platform with live scores and fan community",
 };
 
 const APP_ICONS: Record<string, string> = {

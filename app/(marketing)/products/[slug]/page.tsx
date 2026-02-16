@@ -253,7 +253,8 @@ const products: Record<
     longDescription:
       "FanZone brings cricket fans together with real-time match updates, ball-by-ball commentary, match predictions, and a vibrant community for discussions and banter. Whether you're following IPL, international matches, or local leagues, FanZone keeps you connected to the game you love.",
     icon: Trophy,
-    status: "coming-soon",
+    status: "available",
+    website: "https://fanzonebattleground.com/",
     github: "https://github.com/Tesseract-Nexus/FanZone-Battle-Ground",
     features: [
       {

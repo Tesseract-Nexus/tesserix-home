@@ -22,14 +22,9 @@ const upcomingProducts = [
     icon: Hospital,
     href: "/products/medicare",
   },
-  {
-    title: "FanZone",
-    tagline: "Cricket & Sports",
-    description: "Live scores, predictions, and a vibrant fan community.",
-    icon: Trophy,
-    href: "/products/fanzone",
-  },
 ];
+
+const FANZONE_URL = "https://fanzonebattleground.com/";
 
 const containerVariants = {
   hidden: {},
@@ -190,8 +185,35 @@ export function Hero() {
                 </div>
               </div>
 
-              {/* Upcoming products — stacked right column */}
+              {/* Right column: FanZone featured + upcoming */}
               <div className="flex flex-col gap-4">
+                {/* FanZone — Featured (prod ready) */}
+                <div className="group relative rounded-2xl border bg-card p-5 overflow-hidden flex-1 flex flex-col">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                      <Trophy className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">FanZone</h3>
+                      <p className="text-xs text-muted-foreground">Cricket & Sports</p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+                    Live scores, predictions, and a vibrant fan community.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 flex-1 justify-end">
+                    <div>
+                      <Button size="sm" asChild>
+                        <a href={FANZONE_URL}>
+                          Visit FanZone
+                          <ArrowRight className="ml-2 h-3 w-3" />
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Upcoming products */}
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Coming soon
                 </p>

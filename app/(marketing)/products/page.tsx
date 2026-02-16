@@ -65,7 +65,7 @@ const products = [
       "The ultimate cricket fan experience with live scores, ball-by-ball updates, match predictions, and a vibrant community for cricket banter and discussions.",
     icon: Trophy,
     href: "/products/fanzone",
-    comingSoon: true,
+    website: "fanzonebattleground.com",
     pricing: "Free / Premium $9.99/month",
     features: [
       "Live match scores",
