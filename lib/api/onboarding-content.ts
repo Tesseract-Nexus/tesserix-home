@@ -330,3 +330,44 @@ export async function deleteGuideStep(guideId: string, stepId: string) {
     method: 'DELETE',
   });
 }
+
+// ─── Testimonial approval actions ──────────────────────────────────────────
+
+export async function approveTestimonial(
+  id: string,
+  data: { pageContext?: string; reviewedBy?: string }
+) {
+  return apiFetch<{ data: Testimonial; message: string }>(
+    `${BASE_PATH}/testimonials/${id}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'approve', ...data }),
+    }
+  );
+}
+
+export async function rejectTestimonial(
+  id: string,
+  data: { revisionNotes?: string; reviewedBy?: string }
+) {
+  return apiFetch<{ data: Testimonial; message: string }>(
+    `${BASE_PATH}/testimonials/${id}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'reject', ...data }),
+    }
+  );
+}
+
+export async function requestTestimonialRevision(
+  id: string,
+  data: { revisionNotes: string; reviewedBy?: string }
+) {
+  return apiFetch<{ data: Testimonial; message: string }>(
+    `${BASE_PATH}/testimonials/${id}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'request_revision', ...data }),
+    }
+  );
+}

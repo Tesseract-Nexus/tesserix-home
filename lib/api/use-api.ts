@@ -47,7 +47,7 @@ export function useApi<T>(url: string | null, options: UseApiOptions = {}): UseA
           return;
         }
         const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Request failed (${response.status})`);
+        throw new Error(body.error || body.message || `Request failed (${response.status})`);
       }
 
       const json = await response.json();
@@ -90,7 +90,7 @@ export async function apiFetch<T = unknown>(
     const json = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      return { error: json.error || `Request failed (${response.status})` };
+      return { error: json.error || json.message || `Request failed (${response.status})` };
     }
 
     return { data: json as T };

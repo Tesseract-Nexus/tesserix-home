@@ -20,6 +20,9 @@ interface ConfirmDialogProps {
   variant?: "default" | "destructive";
   onConfirm: () => void;
   loading?: boolean;
+  /** Disable the confirm button (e.g. when confirmation input doesn't match) */
+  confirmDisabled?: boolean;
+  children?: React.ReactNode;
 }
 
 export function ConfirmDialog({
@@ -32,6 +35,8 @@ export function ConfirmDialog({
   variant = "destructive",
   onConfirm,
   loading,
+  confirmDisabled,
+  children,
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,6 +45,7 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {children}
         <DialogFooter>
           <Button
             variant="outline"
@@ -48,7 +54,7 @@ export function ConfirmDialog({
           >
             {cancelLabel}
           </Button>
-          <Button variant={variant} onClick={onConfirm} disabled={loading}>
+          <Button variant={variant} onClick={onConfirm} disabled={loading || confirmDisabled}>
             {loading ? "Please wait..." : confirmLabel}
           </Button>
         </DialogFooter>
