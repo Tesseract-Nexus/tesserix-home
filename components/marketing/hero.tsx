@@ -45,7 +45,7 @@ const itemVariants = {
   },
 };
 
-const ONBOARDING_URL = process.env.NEXT_PUBLIC_ONBOARDING_SITE_URL || "https://dev-onboarding.tesserix.app";
+const ONBOARDING_URL = process.env.NEXT_PUBLIC_ONBOARDING_SITE_URL || "https://mark8ly.com/";
 
 export function Hero() {
   const prefersReducedMotion = useReducedMotion();
