@@ -33,7 +33,7 @@ jobs:
   # =============================================================================
   quality:
     name: Quality Checks
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
 
     steps:
       - name: Checkout code
@@ -75,7 +75,7 @@ jobs:
   # =============================================================================
   release:
     name: Release Tesserix Home
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     needs: [quality]
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -301,7 +301,7 @@ jobs:
   # =============================================================================
   deploy:
     name: Deploy to Cloud Run
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     needs: [release]
     environment: production
 

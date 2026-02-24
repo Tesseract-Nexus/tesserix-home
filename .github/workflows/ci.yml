@@ -44,7 +44,7 @@ jobs:
   # =============================================================================
   quality:
     name: Quality Checks
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
 
     steps:
       - name: Checkout code
@@ -78,7 +78,7 @@ jobs:
   # =============================================================================
   build:
     name: Build and Push Tesserix Home
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     needs: [quality]
     outputs:
       gar_image: ${{ steps.gar-tag.outputs.gar_image }}
@@ -198,7 +198,7 @@ jobs:
   # =============================================================================
   deploy:
     name: Deploy to Cloud Run
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     needs: [build]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
 
